@@ -1,0 +1,42 @@
+# UI/UX Builder Outbox
+
+## TASK-017 - Menu Input and Safe-Area Repair
+
+- Status: Complete, third follow-up playable visibility patch applied.
+- Files changed:
+  - `Assets/_RoadToWorldcup/Scripts/UI/GeneratedMenuController.cs`
+  - `Docs/RoadToWorldcup/Workers/06_UIUXBuilder/OUTBOX.md`
+  - `Docs/RoadToWorldcup/Workers/06_UIUXBuilder/STATUS.md`
+- UI changes:
+  - Added `MainMenu_SafeAreaRoot` with a `SafeAreaFitter` that applies `Screen.safeArea` anchors and updates when the screen size or safe area changes.
+  - Kept the reference background full bleed on the root canvas; after the third follow-up, reference-style logo, currency, utility buttons, Play, Tournament, Customize, and Missions render directly under the canvas root for reliable visibility.
+  - Removed the generated `CURRENT LEVEL` label from both reference-style and fallback menu layouts so it cannot overlap or intercept the Play button.
+  - Left Play wired directly to `SceneLoader.LoadGameplay()`.
+  - Rebuilt the Coming Soon popup as a full-screen `ComingSoon_ModalOverlay` with a raycast-target scrim and a centered card, so outside taps are blocked from reaching menu buttons behind it.
+  - Increased the OK button target from `250x78` to `280x88`.
+- Follow-up fix:
+  - Live Unity Editor reload showed only the full-bleed reference background because it was created as a later root-canvas sibling than `MainMenu_SafeAreaRoot`.
+  - Patched sibling order so `MainMenu_Reference_Background` calls `SetAsFirstSibling()` and `ComingSoon_ModalOverlay` calls `SetAsLastSibling()`.
+  - Preserved safe-area parenting, modal scrim behavior, Play wiring, and reference-style button stack.
+- Second follow-up fix:
+  - Live Unity Editor reload still showed only the full-bleed background/hero after the sibling-order patch.
+  - Added `MainMenu_ReferenceContentRoot` inside `MainMenu_SafeAreaRoot` and parented reference-art controls to that child instead of directly to the stretched safe-area rect.
+  - Added `MainMenuReferenceContentFitter`, which keeps a fixed `1080x1920` reference coordinate system, centers it inside the safe root, and uniformly scales it to fit as safe-area dimensions change.
+  - This preserves the existing reference coordinates used by logo, currency, utility buttons, Play, Tournament, Customize, and Missions while keeping the safe-area inset strategy.
+- Third follow-up fix:
+  - Live Unity Editor reload still showed only the full-bleed background/hero, so playable output was prioritized over safe-area perfection for the reference-art path.
+  - Reference-art controls now render directly under the canvas root with the original `1080x1920` coordinate behavior, matching the pre-TASK-017 visibility model.
+  - Removed the unused `MainMenu_ReferenceContentRoot` / `MainMenuReferenceContentFitter` layer from the active reference path.
+  - Background remains `SetAsFirstSibling()`, controls are created after it as root-canvas siblings, and `ComingSoon_ModalOverlay` remains `SetAsLastSibling()` topmost.
+  - Fallback non-reference UI still uses `MainMenu_SafeAreaRoot`; reference-art menu bypasses it for now to keep logo/buttons/currencies visible after reload.
+- Checks performed:
+  - Direct C# compiler check passed against Unity 6000.4.10f1 scripting assemblies and current project scripts.
+  - Command used `csc` with Unity 6000 references plus `Library/ScriptAssemblies/UnityEngine.UI.dll`.
+  - Result: compile passed with only existing obsolete `Object.FindObjectOfType<T>()` warnings.
+  - Follow-up direct C# compiler check passed against Unity 6000.4.10f1 scripting assemblies with the same existing obsolete warnings.
+  - Second follow-up direct C# compiler check passed against Unity 6000.4.10f1 scripting assemblies with the same existing obsolete warnings.
+  - Third follow-up direct C# compiler check passed against Unity 6000.4.10f1 scripting assemblies with the same existing obsolete warnings.
+  - Attempted Unity batchmode import/compile with `/Applications/Unity/Unity.app/Contents/MacOS/Unity -batchmode -quit -projectPath /Users/mrk/RoadtoWorldCup`; Unity exited before compile due licensing activation failure: "Missing or bad username or password."
+- Risks / follow-up:
+  - Needs final interactive Unity Editor/Game View reload check to confirm canvas-root reference controls are visible and tappable above the background.
+  - Reference-art menu safe-area placement is intentionally bypassed in this patch; fallback UI still uses `Screen.safeArea`.

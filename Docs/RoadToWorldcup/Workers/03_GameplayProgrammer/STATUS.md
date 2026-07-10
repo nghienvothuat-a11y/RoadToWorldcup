@@ -1,0 +1,23 @@
+# Gameplay Programmer Status
+
+- Current task: TASK-016.
+- Status: Implementation complete; Unity 6000 isolated compiler check passed. Awaiting Chief of Staff Play Mode confirmation.
+- Last updated: 2026-07-10.
+- Files changed:
+  - `Assets/_RoadToWorldcup/Scripts/Gameplay/RoadToWorldcupGame.cs`
+  - `Docs/RoadToWorldcup/Workers/03_GameplayProgrammer/OUTBOX.md`
+  - `Docs/RoadToWorldcup/Workers/03_GameplayProgrammer/STATUS.md`
+- Implemented:
+  - Faster deterministic charge timing via `GetChargeDuration()`: early levels full-charge in roughly 0.86 seconds, late levels roughly 0.62 seconds.
+  - Visible pooled white dashed pass preview while aiming, with the final dash ending at the current predicted pass range.
+  - `TouchPhase.Canceled`, app focus loss, app pause, pause overlay, and level-select overlay abort aiming without launching.
+  - Removed release-time `SnapCameraToBall()` call and softened ball-travel camera follow with light direction/receiver look-ahead.
+  - Preserved green-only active possession marker; receivers stay non-green until they become active.
+  - Preserved #10 auto-shot, goalkeeper miss dive, win overlay timing, and TASK-015 ParticleSystem warning fix.
+- Validation:
+  - Required files and TASK-016 prompt section read; gameplay reference image inspected.
+  - Unity 6000.4.10f1 Roslyn compile passed with no diagnostics; output redirected to `/tmp/RoadToWorldcup_TASK016_Assembly-CSharp.dll`.
+  - Static checks confirmed canceled touch no longer counts as release and `LaunchPass()` no longer snaps the camera.
+- Remaining verification:
+  - Chief of Staff should run portrait Play Mode to verify dash visibility, charge feel, canceled touch/focus loss behavior, pass release, #10 auto-shot, and smooth ball-travel camera.
+  - Other recent workspace changes outside this worker's allowed files were observed but not edited or reverted by this worker.
