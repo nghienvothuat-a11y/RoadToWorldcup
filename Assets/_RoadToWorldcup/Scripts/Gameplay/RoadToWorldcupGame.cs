@@ -20,9 +20,17 @@ namespace RoadToWorldcup
         private const float GoalCatchHalfWidth = 2.18f;
         private const float GoalCatchHeight = 2.02f;
         private const float GoalkeeperSavePlaneOffset = 1.55f;
+        private const float BlondeHeaderRadius = 0.72f;
+        private const float BlondeHeaderMinHeight = 1.15f;
+        private const float BlondeHeaderMaxHeight = 3.05f;
+        private const float HeaderClearDuration = 0.82f;
+        private const float LightningMinInterval = 6f;
+        private const float LightningMaxInterval = 8f;
+        private const float LightningVisualDuration = 0.34f;
         private const int MaxDashedPreviewSegments = 18;
         private const int UiSpriteSize = 64;
         private const int RingSegments = 24;
+        private const int MaxOutfieldOpponents = 10;
         private const float RingHeight = 0.045f;
         private const float BallPostRangeRollFriction = 16f;
         private const float BallStopSpeed = 0.12f;
@@ -43,6 +51,7 @@ namespace RoadToWorldcup
             BallTraveling,
             AutoShot,
             GoalkeeperCatch,
+            HeaderClear,
             Won,
             Failed,
             Paused
@@ -52,7 +61,8 @@ namespace RoadToWorldcup
         {
             None,
             AutoRotate,
-            LateralMove
+            LateralMove,
+            TargetMove
         }
 
         private enum FailReason
@@ -61,7 +71,8 @@ namespace RoadToWorldcup
             OpponentIntercepted,
             NotEnoughPower,
             OutOfBounds,
-            GoalkeeperCaught
+            GoalkeeperCaught,
+            HeaderCleared
         }
 
         private sealed class FriendlyDef
@@ -77,6 +88,9 @@ namespace RoadToWorldcup
             public Vector3 lateralStart;
             public Vector3 lateralEnd;
             public float lateralSpeed;
+            public int targetMovePattern;
+            public float targetMovePause;
+            public float targetMovePhase;
             public float fixedYaw;
         }
 
@@ -87,6 +101,9 @@ namespace RoadToWorldcup
             public Vector3 lateralEnd;
             public float lateralSpeed;
             public float lateralPhase;
+            public bool isBlondeHeader;
+            public int targetMovePattern;
+            public float targetMovePause;
         }
 
         private sealed class LevelDef
@@ -120,8 +137,13 @@ namespace RoadToWorldcup
             public LineRenderer activeRing;
             public LineRenderer targetRing;
             public float lateralPhase;
+            public float movementDirection;
+            public float movementPauseTimer;
+            public int movementPauseMarker;
             public float idleSeed;
             public float kickTimer;
+            public bool lightningStruck;
+            public GameObject smokeObject;
         }
 
         private sealed class OpponentRuntime
@@ -137,6 +159,10 @@ namespace RoadToWorldcup
             public LineRenderer ring;
             public float idleSeed;
             public float lateralPhase;
+            public float movementDirection;
+            public float movementPauseTimer;
+            public int movementPauseMarker;
+            public float headerJumpTimer;
         }
 
         private readonly List<LevelDef> levels = new List<LevelDef>();
@@ -144,6 +170,7 @@ namespace RoadToWorldcup
         private readonly List<OpponentRuntime> opponents = new List<OpponentRuntime>();
         private readonly List<GameObject> dashedPreviewSegments = new List<GameObject>();
         private readonly List<LineRenderer> dashedPreviewLines = new List<LineRenderer>();
+        private readonly List<LineRenderer> lightningBranchLines = new List<LineRenderer>();
         private readonly List<RectTransform> celebrationUiPieces = new List<RectTransform>();
         private readonly List<Vector2> celebrationUiVelocities = new List<Vector2>();
         private readonly List<float> celebrationUiSpin = new List<float>();
@@ -181,9 +208,20 @@ namespace RoadToWorldcup
         private Vector3 goalkeeperCatchStartPosition;
         private Vector3 goalkeeperCatchTargetPosition;
         private Vector3 goalkeeperCatchBallLocalPosition;
+        private float headerClearTimer;
+        private OpponentRuntime headerClearOpponent;
+        private Vector3 headerClearOpponentBasePosition;
+        private Vector3 headerClearBallStart;
+        private Vector3 headerClearBallEnd;
+        private bool rainActive;
+        private float nextLightningTimer;
+        private float lightningVisualTimer;
 
         private GameObject worldRoot;
         private GameObject ball;
+        private GameObject rainObject;
+        private LineRenderer lightningBolt;
+        private Light lightningFlash;
         private GameObject receiverTargetBall;
         private LineRenderer receiverTargetRing;
         private GameObject goalkeeper;
@@ -303,9 +341,14 @@ namespace RoadToWorldcup
             {
                 UpdateGoalkeeperCatch(Time.deltaTime);
             }
+            else if (state == GameplayState.HeaderClear)
+            {
+                UpdateHeaderClear(Time.deltaTime);
+            }
 
             FaceNumberLabelsToCamera();
             UpdateReferee(Time.deltaTime);
+            UpdateWeather(Time.deltaTime);
             UpdateRingPositions();
             UpdateReceiverTargetMarker();
             UpdateCharacterAnimation(Time.deltaTime);
@@ -332,6 +375,11 @@ namespace RoadToWorldcup
             lockedLobAmount = 0f;
             ballIsLob = false;
             goalkeeperCatchTimer = 0f;
+            headerClearTimer = 0f;
+            headerClearOpponent = null;
+            rainActive = level.number % 3 == 0;
+            nextLightningTimer = GetNextLightningInterval();
+            lightningVisualTimer = 0f;
             refereeDeflectionCooldown = 0f;
             refereeMotion = Vector3.zero;
             goalSlowMotionTriggered = false;
@@ -367,6 +415,10 @@ namespace RoadToWorldcup
             receiverTargetBall = null;
             receiverTargetRing = null;
             goalkeeper = null;
+            rainObject = null;
+            lightningBolt = null;
+            lightningFlash = null;
+            lightningBranchLines.Clear();
             goalkeeperLeftArm = null;
             goalkeeperRightArm = null;
             goalkeeperLeftLeg = null;
@@ -414,6 +466,8 @@ namespace RoadToWorldcup
             aimCurve = CreateLine("Lob_Curve_Preview_Disabled", new Color(0.95f, 1f, 0.26f, 0.92f), 0.065f, false);
             aimCurve.gameObject.SetActive(false);
 
+            BuildWeather();
+
             DisableWorldColliders();
             DisableWorldShadows();
         }
@@ -438,6 +492,285 @@ namespace RoadToWorldcup
                 renderers[i].shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 renderers[i].receiveShadows = false;
             }
+        }
+
+        private void BuildWeather()
+        {
+            if (!rainActive)
+            {
+                return;
+            }
+
+            Vector3 center = new Vector3((level.fieldMin.x + level.fieldMax.x) * 0.5f, 5.8f, (level.fieldMin.y + level.fieldMax.y) * 0.5f);
+            Vector3 size = new Vector3(level.fieldMax.x - level.fieldMin.x + 3.2f, 0.4f, level.fieldMax.y - level.fieldMin.y + 3.2f);
+
+            rainObject = new GameObject("Light_Rain");
+            rainObject.transform.SetParent(worldRoot.transform, false);
+            rainObject.transform.position = center;
+
+            ParticleSystem rain = rainObject.AddComponent<ParticleSystem>();
+            rain.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            ParticleSystem.MainModule main = rain.main;
+            main.loop = true;
+            main.playOnAwake = false;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(1.2f, 1.85f);
+            main.startSpeed = 0f;
+            main.startSize = new ParticleSystem.MinMaxCurve(0.025f, 0.045f);
+            main.startColor = new Color(0.68f, 0.86f, 1f, 0.42f);
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = 180;
+
+            ParticleSystem.EmissionModule emission = rain.emission;
+            emission.rateOverTime = 56f;
+
+            ParticleSystem.ShapeModule shape = rain.shape;
+            shape.enabled = true;
+            shape.shapeType = ParticleSystemShapeType.Box;
+            shape.scale = size;
+
+            ParticleSystem.VelocityOverLifetimeModule velocity = rain.velocityOverLifetime;
+            velocity.enabled = true;
+            velocity.space = ParticleSystemSimulationSpace.World;
+            velocity.x = new ParticleSystem.MinMaxCurve(-0.35f, -0.12f);
+            velocity.y = new ParticleSystem.MinMaxCurve(-6.2f, -4.8f);
+            velocity.z = new ParticleSystem.MinMaxCurve(-0.18f, 0.18f);
+
+            ParticleSystemRenderer renderer = rain.GetComponent<ParticleSystemRenderer>();
+            renderer.material = MakeUnlitMaterial("Light_Rain_Material", new Color(0.68f, 0.86f, 1f, 0.48f));
+            renderer.renderMode = ParticleSystemRenderMode.Stretch;
+            renderer.lengthScale = 2.8f;
+            renderer.velocityScale = 0.45f;
+
+            rain.Play();
+
+            lightningBolt = CreateLine("Lightning_Bolt", new Color(0.84f, 0.94f, 1f, 0.95f), 0.14f, false);
+            lightningBolt.gameObject.SetActive(false);
+
+            for (int i = 0; i < 4; i++)
+            {
+                LineRenderer branch = CreateLine("Lightning_Branch_" + i, new Color(0.72f, 0.9f, 1f, 0.82f), 0.055f, false);
+                branch.gameObject.SetActive(false);
+                lightningBranchLines.Add(branch);
+            }
+
+            GameObject flashObject = new GameObject("Lightning_Flash");
+            flashObject.transform.SetParent(worldRoot.transform, false);
+            lightningFlash = flashObject.AddComponent<Light>();
+            lightningFlash.type = LightType.Point;
+            lightningFlash.color = new Color(0.72f, 0.88f, 1f, 1f);
+            lightningFlash.range = 6.5f;
+            lightningFlash.intensity = 0f;
+            lightningFlash.enabled = false;
+        }
+
+        private void UpdateWeather(float deltaTime)
+        {
+            if (!rainActive)
+            {
+                return;
+            }
+
+            if (lightningVisualTimer > 0f)
+            {
+                lightningVisualTimer = Mathf.Max(0f, lightningVisualTimer - deltaTime);
+                if (lightningVisualTimer <= 0f && lightningBolt != null)
+                {
+                    lightningBolt.gameObject.SetActive(false);
+                    SetLightningBranchesActive(false);
+                    if (lightningFlash != null)
+                    {
+                        lightningFlash.enabled = false;
+                        lightningFlash.intensity = 0f;
+                    }
+                }
+                else if (lightningFlash != null)
+                {
+                    lightningFlash.intensity = Mathf.Lerp(0f, 7f, lightningVisualTimer / LightningVisualDuration);
+                }
+            }
+
+            if (!IsWeatherHazardActive())
+            {
+                return;
+            }
+
+            nextLightningTimer -= deltaTime;
+            if (nextLightningTimer > 0f)
+            {
+                return;
+            }
+
+            TryStrikeRandomFriendly();
+            nextLightningTimer = GetNextLightningInterval();
+        }
+
+        private bool IsWeatherHazardActive()
+        {
+            return state == GameplayState.Playing || state == GameplayState.Aiming || state == GameplayState.BallTraveling;
+        }
+
+        private float GetNextLightningInterval()
+        {
+            return Random.Range(LightningMinInterval, LightningMaxInterval);
+        }
+
+        private void TryStrikeRandomFriendly()
+        {
+            List<int> candidates = new List<int>();
+            for (int i = 0; i < friendlies.Count; i++)
+            {
+                if (i == activeFriendlyIndex || friendlies[i].def.isTargetTen || friendlies[i].lightningStruck)
+                {
+                    continue;
+                }
+
+                candidates.Add(i);
+            }
+
+            if (candidates.Count == 0)
+            {
+                return;
+            }
+
+            int receiverIndex = candidates[Random.Range(0, candidates.Count)];
+            ApplyLightningStrike(friendlies[receiverIndex]);
+        }
+
+        private void ApplyLightningStrike(FriendlyRuntime runtime)
+        {
+            runtime.lightningStruck = true;
+            runtime.kickTimer = 0f;
+            runtime.movementPauseTimer = 0f;
+            runtime.root.transform.rotation = Quaternion.Euler(0f, runtime.def.fixedYaw, 0f);
+            BlackenCharacter(runtime.root);
+            CreateLightningBolt(runtime.root.transform.position + Vector3.up * 1.15f);
+            CreateSmokeOnFriendly(runtime);
+            StadiumAudio.PlayLightning();
+            SetReceiverTargetVisible(false);
+        }
+
+        private void BlackenCharacter(GameObject target)
+        {
+            Renderer[] renderers = target.GetComponentsInChildren<Renderer>();
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                renderers[i].material.color = Color.Lerp(renderers[i].material.color, Color.black, 0.86f);
+            }
+        }
+
+        private void CreateLightningBolt(Vector3 target)
+        {
+            if (lightningBolt == null)
+            {
+                return;
+            }
+
+            Vector3 start = target + new Vector3(Random.Range(-0.55f, 0.55f), 5.9f, Random.Range(-0.35f, 0.35f));
+            const int boltPoints = 8;
+            Vector3[] points = new Vector3[boltPoints];
+            lightningBolt.positionCount = boltPoints;
+            for (int i = 0; i < boltPoints; i++)
+            {
+                float t = i / (float)(boltPoints - 1);
+                Vector3 point = Vector3.Lerp(start, target, t);
+                if (i > 0 && i < lightningBolt.positionCount - 1)
+                {
+                    float jitter = Mathf.Lerp(0.34f, 0.12f, t);
+                    point += new Vector3(Random.Range(-jitter, jitter), 0f, Random.Range(-jitter, jitter));
+                }
+                points[i] = point;
+                lightningBolt.SetPosition(i, point);
+            }
+
+            lightningBolt.gameObject.SetActive(true);
+            CreateLightningBranches(points);
+            if (lightningFlash != null)
+            {
+                lightningFlash.transform.position = target + Vector3.up * 0.22f;
+                lightningFlash.intensity = 7f;
+                lightningFlash.enabled = true;
+            }
+            lightningVisualTimer = LightningVisualDuration;
+        }
+
+        private void CreateLightningBranches(Vector3[] boltPoints)
+        {
+            for (int i = 0; i < lightningBranchLines.Count; i++)
+            {
+                LineRenderer branch = lightningBranchLines[i];
+                if (branch == null || boltPoints.Length < 4)
+                {
+                    continue;
+                }
+
+                int startIndex = Mathf.Clamp(2 + i, 1, boltPoints.Length - 3);
+                Vector3 branchStart = boltPoints[startIndex];
+                float side = i % 2 == 0 ? 1f : -1f;
+                Vector3 branchEnd = branchStart + new Vector3(side * Random.Range(0.28f, 0.72f), Random.Range(-0.38f, -0.08f), Random.Range(-0.42f, 0.42f));
+                Vector3 branchMid = Vector3.Lerp(branchStart, branchEnd, 0.55f) + new Vector3(side * Random.Range(0.08f, 0.22f), 0f, Random.Range(-0.15f, 0.15f));
+
+                branch.positionCount = 3;
+                branch.SetPosition(0, branchStart);
+                branch.SetPosition(1, branchMid);
+                branch.SetPosition(2, branchEnd);
+                branch.gameObject.SetActive(true);
+            }
+        }
+
+        private void SetLightningBranchesActive(bool active)
+        {
+            for (int i = 0; i < lightningBranchLines.Count; i++)
+            {
+                if (lightningBranchLines[i] != null)
+                {
+                    lightningBranchLines[i].gameObject.SetActive(active);
+                }
+            }
+        }
+
+        private void CreateSmokeOnFriendly(FriendlyRuntime runtime)
+        {
+            if (runtime.smokeObject != null)
+            {
+                return;
+            }
+
+            GameObject smokeObject = new GameObject("Lightning_Smoke");
+            smokeObject.transform.SetParent(runtime.root.transform, false);
+            smokeObject.transform.localPosition = new Vector3(0f, 0.42f, 0f);
+            runtime.smokeObject = smokeObject;
+
+            ParticleSystem smoke = smokeObject.AddComponent<ParticleSystem>();
+            smoke.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            ParticleSystem.MainModule main = smoke.main;
+            main.loop = true;
+            main.playOnAwake = false;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.65f, 1.25f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.18f, 0.48f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.12f, 0.28f);
+            main.startColor = new Color(0.08f, 0.08f, 0.08f, 0.62f);
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = 36;
+
+            ParticleSystem.EmissionModule emission = smoke.emission;
+            emission.rateOverTime = 12f;
+
+            ParticleSystem.ShapeModule shape = smoke.shape;
+            shape.enabled = true;
+            shape.shapeType = ParticleSystemShapeType.Sphere;
+            shape.radius = 0.16f;
+
+            ParticleSystem.VelocityOverLifetimeModule velocity = smoke.velocityOverLifetime;
+            velocity.enabled = true;
+            velocity.space = ParticleSystemSimulationSpace.World;
+            velocity.x = new ParticleSystem.MinMaxCurve(-0.08f, 0.08f);
+            velocity.y = new ParticleSystem.MinMaxCurve(0.55f, 0.95f);
+            velocity.z = new ParticleSystem.MinMaxCurve(-0.08f, 0.08f);
+
+            ParticleSystemRenderer renderer = smoke.GetComponent<ParticleSystemRenderer>();
+            renderer.material = MakeUnlitMaterial("Lightning_Smoke_Material", new Color(0.08f, 0.08f, 0.08f, 0.62f));
+            renderer.renderMode = ParticleSystemRenderMode.Billboard;
+            smoke.Play();
         }
 
         private void SetupCameraAndLight()
@@ -843,11 +1176,22 @@ namespace RoadToWorldcup
             runtime.root.transform.SetParent(worldRoot.transform, false);
             runtime.root.transform.position = def.position;
             runtime.root.transform.rotation = Quaternion.Euler(0f, def.fixedYaw, 0f);
+            runtime.lateralPhase = def.behavior == ActiveBehaviorType.TargetMove ? Mathf.Repeat(def.targetMovePhase, 1f) : 0f;
+            runtime.movementDirection = 1f;
+            runtime.movementPauseMarker = -1;
 
             Material kitMaterial = def.isTargetTen ? playerJerseyMaterial : friendlyBlue;
             Material hairStyleMaterial = def.isTargetTen ? playerHairMaterial : hairMaterial;
             runtime.body = CreateBlockPart(runtime.root.transform, "Body", new Vector3(0f, 0.62f, 0f), new Vector3(0.46f, 0.7f, 0.3f), kitMaterial).transform;
-            CreateBlockPart(runtime.root.transform, "Kit_Stripe", new Vector3(0f, 0.64f, -0.165f), new Vector3(0.18f, 0.7f, 0.025f), friendlyWhite);
+            if (def.isTargetTen)
+            {
+                CreateBlockPart(runtime.root.transform, "Number_10_Backplate_Trim", new Vector3(0f, 0.72f, -0.18f), new Vector3(0.46f, 0.46f, 0.018f), playerAccessoryMaterial);
+                CreateBlockPart(runtime.root.transform, "Number_10_Backplate", new Vector3(0f, 0.72f, -0.2f), new Vector3(0.38f, 0.38f, 0.018f), blackMaterial);
+            }
+            else
+            {
+                CreateBlockPart(runtime.root.transform, "Kit_Stripe", new Vector3(0f, 0.64f, -0.165f), new Vector3(0.18f, 0.7f, 0.025f), friendlyWhite);
+            }
             CreateBlockPart(runtime.root.transform, "Shorts", new Vector3(0f, 0.25f, 0f), new Vector3(0.48f, 0.22f, 0.32f), blackMaterial);
             runtime.head = CreateBlockPart(runtime.root.transform, "Head", new Vector3(0f, 1.08f, 0f), new Vector3(0.34f, 0.34f, 0.34f), skinMaterial).transform;
             CreateBlockPart(runtime.root.transform, "Hair", new Vector3(0f, 1.28f, -0.01f), new Vector3(0.38f, 0.1f, 0.34f), hairStyleMaterial);
@@ -877,14 +1221,28 @@ namespace RoadToWorldcup
 
             runtime.numberText = new GameObject("Number_" + def.number).AddComponent<TextMesh>();
             runtime.numberText.transform.SetParent(runtime.root.transform, false);
-            runtime.numberText.transform.localPosition = new Vector3(0f, 0.72f, -0.17f);
+            runtime.numberText.transform.localPosition = def.isTargetTen ? new Vector3(0f, 0.73f, -0.225f) : new Vector3(0f, 0.72f, -0.17f);
             runtime.numberText.text = def.number.ToString();
             runtime.numberText.font = uiFont;
-            runtime.numberText.fontSize = 42;
-            runtime.numberText.characterSize = 0.028f;
+            runtime.numberText.fontSize = def.isTargetTen ? 68 : 42;
+            runtime.numberText.characterSize = def.isTargetTen ? 0.036f : 0.028f;
             runtime.numberText.anchor = TextAnchor.MiddleCenter;
             runtime.numberText.alignment = TextAlignment.Center;
-            runtime.numberText.color = def.isTargetTen ? new Color(1f, 0.9f, 0.1f) : Color.white;
+            runtime.numberText.color = def.isTargetTen ? new Color(1f, 0.86f, 0.02f) : Color.white;
+
+            if (def.isTargetTen)
+            {
+                TextMesh shadow = new GameObject("Number_10_Shadow").AddComponent<TextMesh>();
+                shadow.transform.SetParent(runtime.numberText.transform, false);
+                shadow.transform.localPosition = new Vector3(0.018f, -0.018f, 0.012f);
+                shadow.text = runtime.numberText.text;
+                shadow.font = uiFont;
+                shadow.fontSize = runtime.numberText.fontSize;
+                shadow.characterSize = runtime.numberText.characterSize;
+                shadow.anchor = TextAnchor.MiddleCenter;
+                shadow.alignment = TextAlignment.Center;
+                shadow.color = new Color(0f, 0f, 0f, 0.92f);
+            }
 
             runtime.activeRing = CreateRing("Active_Ring_" + def.id, new Color(0f, 1f, 0.25f, 0.5f), 0.09f, 0.62f);
             runtime.activeRing.gameObject.SetActive(false);
@@ -898,14 +1256,14 @@ namespace RoadToWorldcup
         {
             OpponentRuntime runtime = new OpponentRuntime();
             runtime.def = def;
-            runtime.root = new GameObject("Opponent");
+            runtime.root = new GameObject(def.isBlondeHeader ? "Opponent_Blonde_Header" : "Opponent");
             runtime.root.transform.SetParent(worldRoot.transform, false);
             runtime.root.transform.position = def.position;
 
             runtime.body = CreateBlockPart(runtime.root.transform, "Body", new Vector3(0f, 0.55f, 0f), new Vector3(0.48f, 0.72f, 0.32f), opponentRed).transform;
             CreateBlockPart(runtime.root.transform, "Shorts", new Vector3(0f, 0.22f, 0f), new Vector3(0.5f, 0.2f, 0.34f), blackMaterial);
             runtime.head = CreateBlockPart(runtime.root.transform, "Head", new Vector3(0f, 1.04f, 0f), new Vector3(0.34f, 0.34f, 0.34f), skinMaterial).transform;
-            CreateBlockPart(runtime.root.transform, "Hair", new Vector3(0f, 1.24f, -0.01f), new Vector3(0.38f, 0.1f, 0.34f), hairMaterial);
+            CreateBlockPart(runtime.root.transform, "Hair", new Vector3(0f, 1.24f, -0.01f), new Vector3(0.38f, 0.1f, 0.34f), def.isBlondeHeader ? goldMaterial : hairMaterial);
             runtime.leftArm = CreateBlockPart(runtime.root.transform, "Left_Arm", new Vector3(-0.34f, 0.56f, 0f), new Vector3(0.13f, 0.54f, 0.16f), skinMaterial).transform;
             runtime.rightArm = CreateBlockPart(runtime.root.transform, "Right_Arm", new Vector3(0.34f, 0.56f, 0f), new Vector3(0.13f, 0.54f, 0.16f), skinMaterial).transform;
             runtime.leftLeg = CreateBlockPart(runtime.root.transform, "Left_Leg", new Vector3(-0.14f, -0.04f, 0f), new Vector3(0.14f, 0.36f, 0.16f), skinMaterial).transform;
@@ -914,8 +1272,10 @@ namespace RoadToWorldcup
             CreateBlockPart(runtime.root.transform, "Right_Boot", new Vector3(0.14f, -0.25f, -0.03f), new Vector3(0.18f, 0.1f, 0.22f), blackMaterial);
             runtime.idleSeed = opponents.Count * 0.61f + def.position.sqrMagnitude * 0.07f;
             runtime.lateralPhase = def.lateralPhase;
+            runtime.movementDirection = 1f;
+            runtime.movementPauseMarker = -1;
 
-            runtime.ring = CreateRing("Opponent_Ring", new Color(1f, 0.1f, 0.06f, 0.5f), 0.075f, 0.66f);
+            runtime.ring = CreateRing("Opponent_Ring", def.isBlondeHeader ? new Color(1f, 0.78f, 0.12f, 0.55f) : new Color(1f, 0.1f, 0.06f, 0.5f), 0.075f, def.isBlondeHeader ? 0.74f : 0.66f);
             return runtime;
         }
 
@@ -1426,6 +1786,11 @@ namespace RoadToWorldcup
                 return;
             }
 
+            if (TryBeginBlondeHeaderClear(ballPosition))
+            {
+                return;
+            }
+
             if (IsOutOfBounds(ballPosition))
             {
                 Fail(FailReason.OutOfBounds);
@@ -1469,6 +1834,77 @@ namespace RoadToWorldcup
             if (IsBallStoppedOnGround())
             {
                 Fail(NextTargetDistance() > ballTravelDistance + level.receiverRadius ? FailReason.NotEnoughPower : FailReason.PassMissed);
+            }
+        }
+
+        private bool TryBeginBlondeHeaderClear(Vector3 ballPosition)
+        {
+            if (!ballIsLob || ballPosition.y < BlondeHeaderMinHeight || ballPosition.y > BlondeHeaderMaxHeight)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < opponents.Count; i++)
+            {
+                OpponentRuntime opponent = opponents[i];
+                if (!opponent.def.isBlondeHeader)
+                {
+                    continue;
+                }
+
+                if (DistanceXZ(ballPosition, opponent.root.transform.position) <= BlondeHeaderRadius)
+                {
+                    BeginHeaderClear(opponent, ballPosition);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void BeginHeaderClear(OpponentRuntime opponent, Vector3 ballPosition)
+        {
+            state = GameplayState.HeaderClear;
+            headerClearTimer = 0f;
+            headerClearOpponent = opponent;
+            headerClearOpponentBasePosition = opponent.root.transform.position;
+            headerClearBallStart = ballPosition;
+            Vector3 clearDirection = Flatten(-ballDirection + Vector3.right * (opponent.root.transform.position.x >= 0f ? 0.45f : -0.45f));
+            if (clearDirection.sqrMagnitude < 0.001f)
+            {
+                clearDirection = Vector3.back;
+            }
+            headerClearBallEnd = ballPosition + clearDirection.normalized * 1.55f + Vector3.up * 0.5f;
+            ballCurrentSpeed = 0f;
+            ballVerticalVelocity = 0f;
+            opponent.headerJumpTimer = HeaderClearDuration;
+            FlashObject(opponent.root, opponentRed, Color.white);
+            StadiumAudio.PlayOpponentReceive();
+            HideDashedPreview();
+            SetPowerVisible(false);
+            SetReceiverTargetVisible(false);
+        }
+
+        private void UpdateHeaderClear(float deltaTime)
+        {
+            headerClearTimer += deltaTime;
+            float t = Mathf.Clamp01(headerClearTimer / HeaderClearDuration);
+            if (headerClearOpponent != null)
+            {
+                Vector3 jumpOffset = Vector3.up * Mathf.Sin(t * Mathf.PI) * 0.46f;
+                headerClearOpponent.root.transform.position = headerClearOpponentBasePosition + jumpOffset;
+                headerClearOpponent.root.transform.rotation = Quaternion.LookRotation(Flatten(-ballDirection).sqrMagnitude > 0.001f ? Flatten(-ballDirection).normalized : Vector3.back, Vector3.up);
+            }
+
+            if (ball != null)
+            {
+                ball.transform.position = Vector3.Lerp(headerClearBallStart, headerClearBallEnd, Mathf.SmoothStep(0f, 1f, t));
+                ball.transform.Rotate(Vector3.right, 520f * deltaTime, Space.World);
+            }
+
+            if (t >= 1f)
+            {
+                Fail(FailReason.HeaderCleared);
             }
         }
 
@@ -1813,6 +2249,11 @@ namespace RoadToWorldcup
                 return "Goalkeeper caught it";
             }
 
+            if (reason == FailReason.HeaderCleared)
+            {
+                return "Header clearance";
+            }
+
             return "Pass missed";
         }
 
@@ -1848,7 +2289,7 @@ namespace RoadToWorldcup
 
         private void Pause()
         {
-            if (state == GameplayState.Won || state == GameplayState.Failed || state == GameplayState.AutoShot || state == GameplayState.GoalkeeperCatch)
+            if (state == GameplayState.Won || state == GameplayState.Failed || state == GameplayState.AutoShot || state == GameplayState.GoalkeeperCatch || state == GameplayState.HeaderClear)
             {
                 return;
             }
@@ -1881,7 +2322,7 @@ namespace RoadToWorldcup
 
         private void ShowLevelSelect()
         {
-            if (levelSelectOverlay == null || state == GameplayState.AutoShot || state == GameplayState.GoalkeeperCatch)
+            if (levelSelectOverlay == null || state == GameplayState.AutoShot || state == GameplayState.GoalkeeperCatch || state == GameplayState.HeaderClear)
             {
                 return;
             }
@@ -1997,6 +2438,11 @@ namespace RoadToWorldcup
                 active.root.transform.rotation = Quaternion.Euler(0f, def.fixedYaw, 0f);
                 AttachBallToActive();
             }
+            else if (def.behavior == ActiveBehaviorType.TargetMove)
+            {
+                UpdateTargetFriendlyMovement(active, deltaTime);
+                AttachBallToActive();
+            }
             else
             {
                 active.root.transform.rotation = Quaternion.Euler(0f, def.fixedYaw, 0f);
@@ -2013,6 +2459,11 @@ namespace RoadToWorldcup
                 }
 
                 FriendlyRuntime friendly = friendlies[i];
+                if (friendly.lightningStruck)
+                {
+                    continue;
+                }
+
                 FriendlyDef def = friendly.def;
                 if (def.behavior == ActiveBehaviorType.LateralMove)
                 {
@@ -2020,6 +2471,10 @@ namespace RoadToWorldcup
                     float t = (Mathf.Sin(friendly.lateralPhase) + 1f) * 0.5f;
                     friendly.root.transform.position = Vector3.Lerp(def.lateralStart, def.lateralEnd, t);
                     friendly.root.transform.rotation = Quaternion.Euler(0f, def.fixedYaw, 0f);
+                }
+                else if (def.behavior == ActiveBehaviorType.TargetMove)
+                {
+                    UpdateTargetFriendlyMovement(friendly, deltaTime);
                 }
                 else if (def.behavior == ActiveBehaviorType.AutoRotate)
                 {
@@ -2030,12 +2485,79 @@ namespace RoadToWorldcup
             }
         }
 
+        private void UpdateTargetFriendlyMovement(FriendlyRuntime runtime, float deltaTime)
+        {
+            if (runtime.lightningStruck)
+            {
+                return;
+            }
+
+            FriendlyDef def = runtime.def;
+            if (runtime.movementPauseTimer > 0f)
+            {
+                runtime.movementPauseTimer = Mathf.Max(0f, runtime.movementPauseTimer - deltaTime);
+                runtime.root.transform.position = GetTargetMovePosition(def, runtime.lateralPhase);
+                runtime.root.transform.rotation = Quaternion.Euler(0f, def.fixedYaw, 0f);
+                return;
+            }
+
+            if (def.targetMovePattern == 2)
+            {
+                runtime.lateralPhase = Mathf.Repeat(runtime.lateralPhase + deltaTime * Mathf.Max(0.08f, def.lateralSpeed), 1f);
+                int marker = Mathf.FloorToInt(runtime.lateralPhase * 4f);
+                if (runtime.movementPauseMarker >= 0 && marker != runtime.movementPauseMarker)
+                {
+                    runtime.movementPauseTimer = def.targetMovePause;
+                }
+                runtime.movementPauseMarker = marker;
+            }
+            else
+            {
+                runtime.lateralPhase += deltaTime * Mathf.Max(0.08f, def.lateralSpeed) * runtime.movementDirection;
+                if (runtime.lateralPhase >= 1f)
+                {
+                    runtime.lateralPhase = 1f;
+                    runtime.movementDirection = -1f;
+                    runtime.movementPauseTimer = def.targetMovePause;
+                }
+                else if (runtime.lateralPhase <= 0f)
+                {
+                    runtime.lateralPhase = 0f;
+                    runtime.movementDirection = 1f;
+                    runtime.movementPauseTimer = def.targetMovePause;
+                }
+            }
+
+            runtime.root.transform.position = GetTargetMovePosition(def, runtime.lateralPhase);
+            runtime.root.transform.rotation = Quaternion.Euler(0f, def.fixedYaw, 0f);
+        }
+
+        private static Vector3 GetTargetMovePosition(FriendlyDef def, float phase)
+        {
+            if (def.targetMovePattern == 2)
+            {
+                Vector3 center = (def.lateralStart + def.lateralEnd) * 0.5f;
+                float width = Mathf.Abs(def.lateralEnd.x - def.lateralStart.x) * 0.5f;
+                float depth = Mathf.Abs(def.lateralEnd.z - def.lateralStart.z) * 0.5f;
+                float angle = Mathf.Repeat(phase, 1f) * Mathf.PI * 2f;
+                return center + new Vector3(Mathf.Sin(angle) * width, 0f, Mathf.Sin(angle * 2f) * depth);
+            }
+
+            return Vector3.Lerp(def.lateralStart, def.lateralEnd, Mathf.Clamp01(phase));
+        }
+
         private void UpdateOpponentMovement(float deltaTime)
         {
             for (int i = 0; i < opponents.Count; i++)
             {
                 OpponentRuntime opponent = opponents[i];
                 OpponentDef def = opponent.def;
+                if (def.isBlondeHeader && def.lateralSpeed > 0.01f && def.targetMovePause > 0f)
+                {
+                    UpdateBlondeHeaderMovement(opponent, deltaTime);
+                    continue;
+                }
+
                 if (def.lateralSpeed <= 0.01f)
                 {
                     continue;
@@ -2053,6 +2575,64 @@ namespace RoadToWorldcup
                     opponent.root.transform.rotation = Quaternion.LookRotation(Flatten(motion).normalized, Vector3.up);
                 }
             }
+        }
+
+        private void UpdateBlondeHeaderMovement(OpponentRuntime runtime, float deltaTime)
+        {
+            OpponentDef def = runtime.def;
+            Vector3 previous = runtime.root.transform.position;
+
+            if (runtime.movementPauseTimer > 0f)
+            {
+                runtime.movementPauseTimer = Mathf.Max(0f, runtime.movementPauseTimer - deltaTime);
+            }
+            else if (def.targetMovePattern == 2)
+            {
+                runtime.lateralPhase = Mathf.Repeat(runtime.lateralPhase + deltaTime * Mathf.Max(0.08f, def.lateralSpeed), 1f);
+                int marker = Mathf.FloorToInt(runtime.lateralPhase * 4f);
+                if (runtime.movementPauseMarker >= 0 && marker != runtime.movementPauseMarker)
+                {
+                    runtime.movementPauseTimer = def.targetMovePause;
+                }
+                runtime.movementPauseMarker = marker;
+            }
+            else
+            {
+                runtime.lateralPhase += deltaTime * Mathf.Max(0.08f, def.lateralSpeed) * runtime.movementDirection;
+                if (runtime.lateralPhase >= 1f)
+                {
+                    runtime.lateralPhase = 1f;
+                    runtime.movementDirection = -1f;
+                    runtime.movementPauseTimer = def.targetMovePause;
+                }
+                else if (runtime.lateralPhase <= 0f)
+                {
+                    runtime.lateralPhase = 0f;
+                    runtime.movementDirection = 1f;
+                    runtime.movementPauseTimer = def.targetMovePause;
+                }
+            }
+
+            runtime.root.transform.position = GetOpponentMovePosition(def, runtime.lateralPhase);
+            Vector3 motion = runtime.root.transform.position - previous;
+            if (motion.sqrMagnitude > 0.0001f)
+            {
+                runtime.root.transform.rotation = Quaternion.LookRotation(Flatten(motion).normalized, Vector3.up);
+            }
+        }
+
+        private static Vector3 GetOpponentMovePosition(OpponentDef def, float phase)
+        {
+            if (def.targetMovePattern == 2)
+            {
+                Vector3 center = (def.lateralStart + def.lateralEnd) * 0.5f;
+                float width = Mathf.Abs(def.lateralEnd.x - def.lateralStart.x) * 0.5f;
+                float depth = Mathf.Abs(def.lateralEnd.z - def.lateralStart.z) * 0.5f;
+                float angle = Mathf.Repeat(phase, 1f) * Mathf.PI * 2f;
+                return center + new Vector3(Mathf.Sin(angle) * width, 0f, Mathf.Sin(angle * 2f) * depth);
+            }
+
+            return Vector3.Lerp(def.lateralStart, def.lateralEnd, Mathf.Clamp01(phase));
         }
 
         private void UpdateReferee(float deltaTime)
@@ -2376,6 +2956,11 @@ namespace RoadToWorldcup
                 return false;
             }
 
+            if (friendlies[receiverIndex].lightningStruck)
+            {
+                return false;
+            }
+
             float activeZ = friendlies[activeFriendlyIndex].root.transform.position.z;
             float receiverZ = friendlies[receiverIndex].root.transform.position.z;
             return receiverZ > activeZ + 0.35f;
@@ -2441,6 +3026,12 @@ namespace RoadToWorldcup
             {
                 FriendlyRuntime runtime = friendlies[i];
                 runtime.kickTimer = Mathf.Max(0f, runtime.kickTimer - deltaTime);
+                if (runtime.lightningStruck)
+                {
+                    ApplyLightningStruckPose(runtime);
+                    continue;
+                }
+
                 float idle = Mathf.Sin((Time.time + runtime.idleSeed) * 3.4f);
                 float breathe = 1f + idle * 0.018f;
                 float kick = runtime.kickTimer > 0f ? Mathf.Sin((runtime.kickTimer / 0.46f) * Mathf.PI) : 0f;
@@ -2529,6 +3120,72 @@ namespace RoadToWorldcup
                 {
                     runtime.rightLeg.localRotation = Quaternion.Euler(-guard * 9f, 0f, 3f);
                 }
+
+                if (runtime.headerJumpTimer > 0f)
+                {
+                    runtime.headerJumpTimer = Mathf.Max(0f, runtime.headerJumpTimer - deltaTime);
+                    float header = Mathf.Sin(Mathf.Clamp01(runtime.headerJumpTimer / HeaderClearDuration) * Mathf.PI);
+                    if (runtime.body != null)
+                    {
+                        runtime.body.localRotation = Quaternion.Euler(22f * header, 0f, guard * 2.5f);
+                    }
+                    if (runtime.head != null)
+                    {
+                        runtime.head.localPosition = new Vector3(0f, 1.08f + header * 0.16f, -0.08f * header);
+                        runtime.head.localRotation = Quaternion.Euler(28f * header, guard * 5f, 0f);
+                    }
+                    if (runtime.leftArm != null)
+                    {
+                        runtime.leftArm.localRotation = Quaternion.Euler(-48f * header, 0f, -36f);
+                    }
+                    if (runtime.rightArm != null)
+                    {
+                        runtime.rightArm.localRotation = Quaternion.Euler(-48f * header, 0f, 36f);
+                    }
+                }
+            }
+        }
+
+        private static void ApplyLightningStruckPose(FriendlyRuntime runtime)
+        {
+            runtime.root.transform.rotation = Quaternion.Euler(0f, runtime.def.fixedYaw, 0f);
+
+            if (runtime.body != null)
+            {
+                runtime.body.localPosition = new Vector3(0f, 0.2f, 0f);
+                runtime.body.localRotation = Quaternion.Euler(0f, 0f, 86f);
+                runtime.body.localScale = new Vector3(0.46f, 0.7f, 0.3f);
+            }
+
+            if (runtime.head != null)
+            {
+                runtime.head.localPosition = new Vector3(0.42f, 0.23f, 0.02f);
+                runtime.head.localRotation = Quaternion.Euler(0f, -12f, 74f);
+            }
+
+            if (runtime.leftArm != null)
+            {
+                runtime.leftArm.localRotation = Quaternion.Euler(8f, 0f, -82f);
+            }
+
+            if (runtime.rightArm != null)
+            {
+                runtime.rightArm.localRotation = Quaternion.Euler(-16f, 0f, 92f);
+            }
+
+            if (runtime.leftLeg != null)
+            {
+                runtime.leftLeg.localRotation = Quaternion.Euler(0f, 0f, -42f);
+            }
+
+            if (runtime.rightLeg != null)
+            {
+                runtime.rightLeg.localRotation = Quaternion.Euler(0f, 0f, 36f);
+            }
+
+            if (runtime.numberText != null)
+            {
+                runtime.numberText.gameObject.SetActive(false);
             }
         }
 
@@ -2626,7 +3283,8 @@ namespace RoadToWorldcup
                     || state == GameplayState.Aiming
                     || state == GameplayState.BallTraveling
                     || state == GameplayState.AutoShot
-                    || state == GameplayState.GoalkeeperCatch);
+                    || state == GameplayState.GoalkeeperCatch
+                    || state == GameplayState.HeaderClear);
         }
 
         private Vector3 GetGameplayCameraPosition()
@@ -3152,6 +3810,17 @@ namespace RoadToWorldcup
             return new Vector3(position.x * GameplayPositionScale, position.y, position.z * GameplayPositionScale);
         }
 
+        private static float GetYawDegrees(Vector3 direction)
+        {
+            Vector3 flat = new Vector3(direction.x, 0f, direction.z);
+            if (flat.sqrMagnitude < 0.001f)
+            {
+                return 0f;
+            }
+
+            return Mathf.Atan2(flat.x, flat.z) * Mathf.Rad2Deg;
+        }
+
         private static LevelDef CreateGeneratedLevel(int number)
         {
             LevelDef levelDef = BaseLevel(number, GetGeneratedPrompt(number));
@@ -3209,9 +3878,17 @@ namespace RoadToWorldcup
                 levelDef.friendlies.Add(friendly);
             }
 
+            AddBlondeHeaderOpponent(levelDef, number, progress);
+            AddOpponentWalls(levelDef, number, progress);
+
             int lineCount = number <= 1 ? 0 : Mathf.Clamp(1 + (number - 2) / 3, 1, 8);
             for (int line = 0; line < lineCount; line++)
             {
+                if (levelDef.opponents.Count >= MaxOutfieldOpponents)
+                {
+                    break;
+                }
+
                 float t = lineCount <= 1 ? 0.35f : line / (lineCount - 1f);
                 float z = Mathf.Lerp(-3.95f, 3.6f, t);
                 int runners = number < 8 ? 1 : (number < 18 ? 2 : 3);
@@ -3222,6 +3899,11 @@ namespace RoadToWorldcup
 
                 for (int j = 0; j < runners; j++)
                 {
+                    if (levelDef.opponents.Count >= MaxOutfieldOpponents)
+                    {
+                        break;
+                    }
+
                     float rowOffset = (j - (runners - 1) * 0.5f) * 0.38f;
                     float width = Mathf.Lerp(1.65f, 3.0f, progress) - j * 0.16f;
                     float centerX = Mathf.Sin(number * 0.41f + line * 0.77f + j) * 0.45f;
@@ -3234,7 +3916,6 @@ namespace RoadToWorldcup
                 }
             }
 
-            AddOpponentWalls(levelDef, number, progress);
             return levelDef;
         }
 
@@ -3251,37 +3932,186 @@ namespace RoadToWorldcup
 
         private static void ConfigureTargetTenMovement(FriendlyDef friendly, int number, float progress)
         {
-            if (number < 6 || number % 4 == 1)
+            if (number < 8 || !ShouldTargetTenMove(number))
             {
                 return;
             }
 
-            friendly.behavior = ActiveBehaviorType.LateralMove;
-            float width = Mathf.Lerp(0.42f, 1.2f, progress);
-            float depth = Mathf.Lerp(0.18f, 0.54f, progress);
-            Vector3 center = friendly.position;
-            int pattern = number % 4;
+            float movementDifficulty = Mathf.InverseLerp(8f, GameSession.LevelCount, number);
+            friendly.behavior = ActiveBehaviorType.TargetMove;
+            friendly.targetMovePattern = GetTargetTenMovePattern(number);
+            friendly.targetMovePause = Mathf.Clamp(Mathf.Lerp(1.85f, 1.05f, movementDifficulty) + (number % 2) * 0.08f, 1f, 2f);
+            friendly.targetMovePhase = Mathf.Repeat(number * 0.137f, 1f);
+            friendly.lateralSpeed = Mathf.Lerp(0.22f, 0.9f, movementDifficulty) + (number % 5) * 0.025f;
 
-            if (pattern == 0)
+            if (friendly.targetMovePattern == 2)
+            {
+                friendly.lateralSpeed = Mathf.Lerp(0.16f, 0.48f, movementDifficulty) + (number % 4) * 0.018f;
+            }
+
+            float width = Mathf.Lerp(0.48f, 1.42f, movementDifficulty);
+            float depth = Mathf.Lerp(0.24f, 0.82f, movementDifficulty);
+            Vector3 center = friendly.position;
+
+            if (friendly.targetMovePattern == 0)
             {
                 friendly.lateralStart = new Vector3(Mathf.Clamp(center.x - width, -2.35f, 2.35f), 0f, center.z);
                 friendly.lateralEnd = new Vector3(Mathf.Clamp(center.x + width, -2.35f, 2.35f), 0f, center.z);
             }
-            else if (pattern == 2)
+            else if (friendly.targetMovePattern == 1)
             {
                 friendly.lateralStart = new Vector3(center.x, 0f, Mathf.Clamp(center.z - depth, 4.68f, 5.68f));
                 friendly.lateralEnd = new Vector3(center.x, 0f, Mathf.Clamp(center.z + depth, 4.68f, 5.68f));
             }
             else
             {
-                float diagonalSign = number % 2 == 0 ? 1f : -1f;
-                friendly.lateralStart = new Vector3(Mathf.Clamp(center.x - width * 0.72f, -2.35f, 2.35f), 0f, Mathf.Clamp(center.z - depth * diagonalSign, 4.68f, 5.68f));
-                friendly.lateralEnd = new Vector3(Mathf.Clamp(center.x + width * 0.72f, -2.35f, 2.35f), 0f, Mathf.Clamp(center.z + depth * diagonalSign, 4.68f, 5.68f));
+                friendly.lateralStart = new Vector3(Mathf.Clamp(center.x - width, -2.35f, 2.35f), 0f, Mathf.Clamp(center.z - depth, 4.68f, 5.68f));
+                friendly.lateralEnd = new Vector3(Mathf.Clamp(center.x + width, -2.35f, 2.35f), 0f, Mathf.Clamp(center.z + depth, 4.68f, 5.68f));
             }
 
-            friendly.position = Vector3.Lerp(friendly.lateralStart, friendly.lateralEnd, 0.5f);
-            friendly.lateralSpeed = Mathf.Lerp(0.28f, 0.74f, progress) + (number % 5) * 0.035f;
+            friendly.position = GetTargetMovePosition(friendly, friendly.targetMovePhase);
             friendly.fixedYaw = Mathf.Clamp(center.x * -16f, -46f, 46f);
+        }
+
+        private static bool ShouldTargetTenMove(int number)
+        {
+            if (number < 14)
+            {
+                return number % 2 == 0;
+            }
+
+            if (number < 22)
+            {
+                return number % 3 != 1;
+            }
+
+            return number % 4 != 1;
+        }
+
+        private static int GetTargetTenMovePattern(int number)
+        {
+            if (number < 14)
+            {
+                return 0;
+            }
+
+            if (number < 22)
+            {
+                return number % 2 == 0 ? 0 : 1;
+            }
+
+            if (number % 3 == 0)
+            {
+                return 2;
+            }
+
+            return number % 2 == 0 ? 1 : 0;
+        }
+
+        private static bool AddBlondeHeaderOpponent(LevelDef levelDef, int number, float progress)
+        {
+            if (number < 12 || !ShouldBlondeHeaderAppear(number) || levelDef.opponents.Count >= MaxOutfieldOpponents || levelDef.friendlies.Count == 0)
+            {
+                return false;
+            }
+
+            FriendlyDef targetTen = levelDef.friendlies[levelDef.friendlies.Count - 1];
+            Vector3 tenPosition = targetTen.position;
+            float side = Mathf.Sin(number * 0.91f) >= 0f ? 1f : -1f;
+            float xOffset = side * Mathf.Lerp(0.82f, 1.05f, progress);
+            Vector3 position = new Vector3(
+                Mathf.Clamp(tenPosition.x + xOffset, -2.25f, 2.25f),
+                0f,
+                Mathf.Clamp(tenPosition.z - Mathf.Lerp(0.82f, 1.18f, progress), 3.82f, 4.82f));
+
+            OpponentDef blonde = Opponent(position);
+            blonde.isBlondeHeader = true;
+
+            if (number >= 16)
+            {
+                ConfigureBlondeHeaderMovement(blonde, number, progress, tenPosition.z);
+            }
+
+            levelDef.opponents.Add(blonde);
+            ArrangeFinalFriendlyGroundLane(levelDef, blonde, progress);
+            return true;
+        }
+
+        private static void ArrangeFinalFriendlyGroundLane(LevelDef levelDef, OpponentDef blonde, float progress)
+        {
+            if (levelDef.friendlies.Count < 2)
+            {
+                return;
+            }
+
+            FriendlyDef targetTen = levelDef.friendlies[levelDef.friendlies.Count - 1];
+            FriendlyDef passer = levelDef.friendlies[levelDef.friendlies.Count - 2];
+            float defenderSide = blonde.position.x >= targetTen.position.x ? 1f : -1f;
+            float laneOffset = Mathf.Lerp(1.18f, 1.62f, progress);
+            float passerZ = Mathf.Clamp(targetTen.position.z - Mathf.Lerp(1.45f, 1.9f, progress), 3.0f, targetTen.position.z - 0.85f);
+            passer.position = new Vector3(Mathf.Clamp(targetTen.position.x - defenderSide * laneOffset, -2.35f, 2.35f), 0f, passerZ);
+            passer.lateralStart = passer.position;
+            passer.lateralEnd = passer.position;
+            passer.lateralSpeed = 0f;
+            passer.behavior = ActiveBehaviorType.AutoRotate;
+
+            Vector3 toTarget = targetTen.position - passer.position;
+            float yaw = GetYawDegrees(toTarget);
+            passer.fixedYaw = yaw;
+            passer.sweepMinYaw = yaw - 10f;
+            passer.sweepMaxYaw = yaw + 10f;
+            passer.sweepSpeed = Mathf.Lerp(0.46f, 0.72f, progress);
+        }
+
+        private static bool ShouldBlondeHeaderAppear(int number)
+        {
+            if (number < 18)
+            {
+                return number % 3 != 1;
+            }
+
+            if (number < 24)
+            {
+                return number % 4 != 1;
+            }
+
+            return number % 5 != 2;
+        }
+
+        private static void ConfigureBlondeHeaderMovement(OpponentDef opponent, int number, float progress, float targetTenZ)
+        {
+            float movementDifficulty = Mathf.InverseLerp(16f, GameSession.LevelCount, number);
+            opponent.targetMovePattern = GetTargetTenMovePattern(number);
+            opponent.targetMovePause = Mathf.Clamp(Mathf.Lerp(1.8f, 1.05f, movementDifficulty), 1f, 2f);
+            opponent.lateralPhase = Mathf.Repeat(number * 0.173f, 1f);
+            opponent.lateralSpeed = Mathf.Lerp(0.18f, 0.68f, movementDifficulty) + (number % 4) * 0.02f;
+
+            if (opponent.targetMovePattern == 2)
+            {
+                opponent.lateralSpeed *= 0.62f;
+            }
+
+            Vector3 center = opponent.position;
+            float width = Mathf.Lerp(0.36f, 0.98f, movementDifficulty);
+            float depth = Mathf.Lerp(0.16f, 0.48f, movementDifficulty);
+            float maxZBeforeTen = Mathf.Clamp(targetTenZ - 0.42f, 3.72f, 4.98f);
+            if (opponent.targetMovePattern == 0)
+            {
+                opponent.lateralStart = new Vector3(Mathf.Clamp(center.x - width, -2.35f, 2.35f), 0f, center.z);
+                opponent.lateralEnd = new Vector3(Mathf.Clamp(center.x + width, -2.35f, 2.35f), 0f, center.z);
+            }
+            else if (opponent.targetMovePattern == 1)
+            {
+                opponent.lateralStart = new Vector3(center.x, 0f, Mathf.Clamp(center.z - depth, 3.72f, maxZBeforeTen));
+                opponent.lateralEnd = new Vector3(center.x, 0f, Mathf.Clamp(center.z + depth, 3.72f, maxZBeforeTen));
+            }
+            else
+            {
+                opponent.lateralStart = new Vector3(Mathf.Clamp(center.x - width, -2.35f, 2.35f), 0f, Mathf.Clamp(center.z - depth, 3.72f, maxZBeforeTen));
+                opponent.lateralEnd = new Vector3(Mathf.Clamp(center.x + width, -2.35f, 2.35f), 0f, Mathf.Clamp(center.z + depth, 3.72f, maxZBeforeTen));
+            }
+
+            opponent.position = GetOpponentMovePosition(opponent, opponent.lateralPhase);
         }
 
         private static void AddOpponentWalls(LevelDef levelDef, int number, float progress)
@@ -3294,6 +4124,11 @@ namespace RoadToWorldcup
             int wallCount = number < 14 ? 1 : (number < 24 ? 2 : 3);
             for (int wall = 0; wall < wallCount; wall++)
             {
+                if (levelDef.opponents.Count >= MaxOutfieldOpponents)
+                {
+                    return;
+                }
+
                 int defenders = (number + wall) % 3 == 0 ? 3 : 2;
                 float z = Mathf.Lerp(-2.75f, 3.15f, wallCount == 1 ? 0.52f : wall / (wallCount - 1f));
                 z += Mathf.Sin(number * 0.37f + wall) * 0.35f;
@@ -3308,6 +4143,11 @@ namespace RoadToWorldcup
 
                 for (int i = 0; i < defenders; i++)
                 {
+                    if (levelDef.opponents.Count >= MaxOutfieldOpponents)
+                    {
+                        return;
+                    }
+
                     float offset = (i - (defenders - 1) * 0.5f) * spacing;
                     Vector3 position = new Vector3(centerX + offset, 0f, z);
                     if (!movingWall)
@@ -3574,6 +4414,9 @@ namespace RoadToWorldcup
             def.lateralStart = position;
             def.lateralEnd = position;
             def.lateralSpeed = 0f;
+            def.targetMovePattern = 0;
+            def.targetMovePause = 1.5f;
+            def.targetMovePhase = 0f;
             return def;
         }
 
@@ -3585,6 +4428,9 @@ namespace RoadToWorldcup
             def.lateralEnd = position;
             def.lateralSpeed = 0f;
             def.lateralPhase = 0f;
+            def.isBlondeHeader = false;
+            def.targetMovePattern = 0;
+            def.targetMovePause = 0f;
             return def;
         }
 
@@ -3596,6 +4442,9 @@ namespace RoadToWorldcup
             def.lateralEnd = lateralEnd;
             def.lateralSpeed = lateralSpeed;
             def.lateralPhase = lateralPhase;
+            def.isBlondeHeader = false;
+            def.targetMovePattern = 0;
+            def.targetMovePause = 0f;
             return def;
         }
     }

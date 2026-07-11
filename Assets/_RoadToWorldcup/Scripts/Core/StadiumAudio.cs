@@ -25,6 +25,7 @@ namespace RoadToWorldcup
         private AudioClip ballBounce;
         private AudioClip teammateReceive;
         private AudioClip opponentReceive;
+        private AudioClip lightningStrike;
         private AudioClip netHit;
         private AudioClip refereeWhistle;
         private AudioClip crowdCheer;
@@ -98,6 +99,12 @@ namespace RoadToWorldcup
         {
             if (instance == null || !GameSession.SfxEnabled) return;
             instance.sfxSource.PlayOneShot(instance.opponentReceive, 0.78f);
+        }
+
+        public static void PlayLightning()
+        {
+            if (instance == null || !GameSession.SfxEnabled) return;
+            instance.sfxSource.PlayOneShot(instance.lightningStrike, 0.95f);
         }
 
         public static void PlayGoal()
@@ -203,6 +210,7 @@ namespace RoadToWorldcup
             ballBounce = CreateBallBounce();
             teammateReceive = CreateTeammateReceive();
             opponentReceive = CreateOpponentReceive();
+            lightningStrike = CreateLightningStrike();
             netHit = CreateNetHit();
             refereeWhistle = CreateWhistle();
             crowdCheer = CreateCrowdCheer();
@@ -278,6 +286,19 @@ namespace RoadToWorldcup
             {
                 float envelope = Mathf.Exp(-time * 8f);
                 data[sample] = envelope * (0.31f * Mathf.Sin(time * Mathf.PI * 2f * (190f - time * 90f)) + Noise(ref seed) * 0.2f);
+            });
+        }
+
+        private static AudioClip CreateLightningStrike()
+        {
+            return CreateClip("SFX_Lightning_Strike", 1.15f, delegate(float[] data, float time, int sample, ref uint seed)
+            {
+                float crackEnvelope = Mathf.Exp(-time * 34f);
+                float crack = Noise(ref seed) * crackEnvelope * 0.82f;
+                float snap = time < 0.055f ? Mathf.Sin(time * Mathf.PI * 2f * (920f - time * 6800f)) * Mathf.Exp(-time * 48f) * 0.58f : 0f;
+                float rumbleEnvelope = Mathf.Clamp01((time - 0.045f) / 0.08f) * Mathf.Exp(-Mathf.Max(0f, time - 0.06f) * 2.9f);
+                float rumble = rumbleEnvelope * (Mathf.Sin(time * Mathf.PI * 2f * 43f) * 0.26f + Mathf.Sin(time * Mathf.PI * 2f * 71f) * 0.18f + Noise(ref seed) * 0.12f);
+                data[sample] = Mathf.Clamp(crack + snap + rumble, -0.96f, 0.96f);
             });
         }
 
