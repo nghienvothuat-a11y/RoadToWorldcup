@@ -1,4 +1,6 @@
-# Road To Worldcup
+# The King: Road to Champion
+
+`The King: Road to Champion` is a portrait mobile football passing game. Guide the ball through your team, collect gems, and set up #10 for the finish.
 
 ## Unity Version
 
@@ -33,7 +35,7 @@ When adjusting the Main Menu, test in Play Mode with Unity 6000.4.10f1 and compa
 
 ## Art Style Guide
 
-Road To Worldcup uses a bright toy-football mobile style: blocky characters, saturated stadium lighting, readable arcade UI, and big glossy buttons.
+The King: Road to Champion uses a bright toy-football mobile style: blocky characters, saturated stadium lighting, readable arcade UI, and big glossy buttons.
 
 ### Visual Pillars
 

@@ -93,12 +93,42 @@ namespace RoadToWorldcup
             new CosmeticItem("hair_street", CosmeticCategory.Hair, "Street Fade", "HAIR", WalletCurrency.Coins, 0, new Color(0.10f, 0.05f, 0.02f)),
             new CosmeticItem("hair_blaze", CosmeticCategory.Hair, "Blaze Hawk", "FIRE", WalletCurrency.Coins, 650, new Color(0.85f, 0.18f, 0.06f)),
             new CosmeticItem("hair_ice", CosmeticCategory.Hair, "Ice Twist", "ICE", WalletCurrency.Gems, 12, new Color(0.42f, 0.9f, 1f)),
+            new CosmeticItem("hair_buzz", CosmeticCategory.Hair, "Matchday Buzz", "BUZZ", WalletCurrency.Coins, 450, new Color(0.16f, 0.09f, 0.04f)),
+            new CosmeticItem("hair_mohawk", CosmeticCategory.Hair, "Thunder Hawk", "HAWK", WalletCurrency.Coins, 780, new Color(0.14f, 0.86f, 0.54f)),
+            new CosmeticItem("hair_comet", CosmeticCategory.Hair, "Comet Sweep", "COMET", WalletCurrency.Gems, 10, new Color(0.95f, 0.38f, 0.08f)),
+            new CosmeticItem("hair_silver", CosmeticCategory.Hair, "Silver Cut", "SILVER", WalletCurrency.Coins, 960, new Color(0.76f, 0.82f, 0.9f)),
+            new CosmeticItem("hair_braid", CosmeticCategory.Hair, "Pitch Braids", "BRAID", WalletCurrency.Gems, 16, new Color(0.32f, 0.12f, 0.05f)),
+            new CosmeticItem("hair_neon", CosmeticCategory.Hair, "Neon Wave", "NEON", WalletCurrency.Coins, 1200, new Color(0.92f, 0.08f, 0.62f)),
+            new CosmeticItem("hair_emerald", CosmeticCategory.Hair, "Emerald Crop", "EMERALD", WalletCurrency.Gems, 21, new Color(0.04f, 0.62f, 0.34f)),
+            new CosmeticItem("hair_royal", CosmeticCategory.Hair, "Royal Curl", "CURL", WalletCurrency.Coins, 1450, new Color(0.31f, 0.18f, 0.74f)),
+            new CosmeticItem("hair_gold", CosmeticCategory.Hair, "Golden Streak", "GOLD", WalletCurrency.Gems, 30, new Color(1f, 0.76f, 0.08f)),
+            new CosmeticItem("hair_rose", CosmeticCategory.Hair, "Rose Fade", "ROSE", WalletCurrency.Coins, 1800, new Color(0.98f, 0.25f, 0.42f)),
             new CosmeticItem("jersey_ocean", CosmeticCategory.Jersey, "Ocean 10", "10", WalletCurrency.Coins, 0, new Color(0.03f, 0.30f, 0.92f)),
             new CosmeticItem("jersey_sun", CosmeticCategory.Jersey, "Sunset Striker", "10", WalletCurrency.Coins, 900, new Color(1f, 0.42f, 0.06f)),
             new CosmeticItem("jersey_royal", CosmeticCategory.Jersey, "Royal Pulse", "10", WalletCurrency.Gems, 18, new Color(0.50f, 0.16f, 0.92f)),
+            new CosmeticItem("jersey_mint", CosmeticCategory.Jersey, "Mint Runner", "10", WalletCurrency.Coins, 520, new Color(0.05f, 0.74f, 0.56f)),
+            new CosmeticItem("jersey_crimson", CosmeticCategory.Jersey, "Crimson Curve", "10", WalletCurrency.Coins, 760, new Color(0.84f, 0.06f, 0.13f)),
+            new CosmeticItem("jersey_lime", CosmeticCategory.Jersey, "Lime Flash", "10", WalletCurrency.Gems, 11, new Color(0.54f, 0.92f, 0.05f)),
+            new CosmeticItem("jersey_night", CosmeticCategory.Jersey, "Night League", "10", WalletCurrency.Coins, 1050, new Color(0.05f, 0.09f, 0.18f)),
+            new CosmeticItem("jersey_coral", CosmeticCategory.Jersey, "Coral Volley", "10", WalletCurrency.Coins, 1320, new Color(1f, 0.28f, 0.22f)),
+            new CosmeticItem("jersey_aqua", CosmeticCategory.Jersey, "Aqua Engine", "10", WalletCurrency.Gems, 19, new Color(0.04f, 0.72f, 0.9f)),
+            new CosmeticItem("jersey_gold", CosmeticCategory.Jersey, "Golden Captain", "10", WalletCurrency.Coins, 1680, new Color(0.94f, 0.68f, 0.05f)),
+            new CosmeticItem("jersey_violet", CosmeticCategory.Jersey, "Violet Spin", "10", WalletCurrency.Gems, 27, new Color(0.42f, 0.12f, 0.82f)),
+            new CosmeticItem("jersey_white", CosmeticCategory.Jersey, "White Heat", "10", WalletCurrency.Coins, 2100, new Color(0.92f, 0.96f, 1f)),
+            new CosmeticItem("jersey_cyan", CosmeticCategory.Jersey, "Cyan Tempo", "10", WalletCurrency.Gems, 34, new Color(0.02f, 0.86f, 1f)),
             new CosmeticItem("accessory_captain", CosmeticCategory.Accessory, "Captain Band", "C", WalletCurrency.Coins, 0, new Color(1f, 0.78f, 0.10f)),
             new CosmeticItem("accessory_shades", CosmeticCategory.Accessory, "Goal Shades", "COOL", WalletCurrency.Coins, 1100, new Color(0.06f, 0.08f, 0.12f)),
-            new CosmeticItem("accessory_crown", CosmeticCategory.Accessory, "Golden Crown", "KING", WalletCurrency.Gems, 25, new Color(1f, 0.74f, 0.08f))
+            new CosmeticItem("accessory_crown", CosmeticCategory.Accessory, "Golden Crown", "KING", WalletCurrency.Gems, 25, new Color(1f, 0.74f, 0.08f)),
+            new CosmeticItem("accessory_wrist", CosmeticCategory.Accessory, "Power Wristband", "WRIST", WalletCurrency.Coins, 430, new Color(0.08f, 0.78f, 0.96f)),
+            new CosmeticItem("accessory_mask", CosmeticCategory.Accessory, "Striker Mask", "MASK", WalletCurrency.Gems, 9, new Color(0.92f, 0.12f, 0.18f)),
+            new CosmeticItem("accessory_visor", CosmeticCategory.Accessory, "Sky Visor", "VISOR", WalletCurrency.Coins, 720, new Color(0.22f, 0.68f, 1f)),
+            new CosmeticItem("accessory_scarf", CosmeticCategory.Accessory, "Victory Scarf", "SCARF", WalletCurrency.Coins, 980, new Color(1f, 0.3f, 0.06f)),
+            new CosmeticItem("accessory_headband", CosmeticCategory.Accessory, "Focus Band", "BAND", WalletCurrency.Gems, 15, new Color(0.92f, 0.2f, 0.62f)),
+            new CosmeticItem("accessory_wings", CosmeticCategory.Accessory, "Speed Wings", "WINGS", WalletCurrency.Coins, 1280, new Color(0.92f, 0.96f, 1f)),
+            new CosmeticItem("accessory_chain", CosmeticCategory.Accessory, "Goal Chain", "CHAIN", WalletCurrency.Gems, 22, new Color(1f, 0.72f, 0.04f)),
+            new CosmeticItem("accessory_gloves", CosmeticCategory.Accessory, "Street Gloves", "GLOVES", WalletCurrency.Coins, 1600, new Color(0.12f, 0.12f, 0.15f)),
+            new CosmeticItem("accessory_star", CosmeticCategory.Accessory, "Star Badge", "STAR", WalletCurrency.Gems, 29, new Color(0.12f, 0.9f, 0.55f)),
+            new CosmeticItem("accessory_ankle", CosmeticCategory.Accessory, "Turbo Ankles", "TURBO", WalletCurrency.Coins, 2050, new Color(0.9f, 0.18f, 0.14f))
         };
 
         private static int selectedLevelIndex;
@@ -156,6 +186,20 @@ namespace RoadToWorldcup
             AddCurrency(WalletCurrency.Coins, reward);
             SaveAndNotify();
             return reward;
+        }
+
+        public static void CollectGems(int amount)
+        {
+            if (amount <= 0) return;
+            AddCurrency(WalletCurrency.Gems, amount);
+            SaveAndNotify();
+        }
+
+        public static void GrantIapReward(int coins, int gems)
+        {
+            AddCurrency(WalletCurrency.Coins, coins);
+            AddCurrency(WalletCurrency.Gems, gems);
+            SaveAndNotify();
         }
 
         public static Reward GetDailyRewardPreview() { return DailyRewards[DailyRewardDay]; }

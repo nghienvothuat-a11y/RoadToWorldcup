@@ -16,7 +16,7 @@ namespace RoadToWorldcup.EditorTools
             EditorApplication.delayCall += ConfigureProjectForMobile;
         }
 
-        [MenuItem("Road To Worldcup/Set Mobile 9:16 Game View")]
+        [MenuItem("The King: Road to Champion/Set Mobile 9:16 Game View")]
         public static void ConfigureProjectForMobile()
         {
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
@@ -31,7 +31,7 @@ namespace RoadToWorldcup.EditorTools
             }
             catch (Exception exception)
             {
-                Debug.LogWarning("Road To Worldcup could not auto-select the mobile Game View size. Select 1080x1920 or 9:16 manually if needed. " + exception.Message);
+                Debug.LogWarning("The King: Road to Champion could not auto-select the mobile Game View size. Select 1080x1920 or 9:16 manually if needed. " + exception.Message);
             }
         }
 
@@ -71,7 +71,7 @@ namespace RoadToWorldcup.EditorTools
                 selectedIndex = FindGameViewSizeIndex(group, getTotalCount, getGameViewSize, label, width, height);
             }
 
-            Debug.Log("Road To Worldcup selected Game View size " + label + " in " + groupTypeValue + " at index " + selectedIndex + ".");
+            Debug.Log("The King: Road to Champion selected Game View size " + label + " in " + groupTypeValue + " at index " + selectedIndex + ".");
             SelectGameViewSize(gameView, gameViewType, selectedIndex);
         }
 
@@ -151,7 +151,7 @@ namespace RoadToWorldcup.EditorTools
                 }
                 else
                 {
-                    Debug.LogWarning("Road To Worldcup found an unsupported GameView.SizeSelectionCallback signature.");
+                    Debug.LogWarning("The King: Road to Champion found an unsupported GameView.SizeSelectionCallback signature.");
                 }
 
                 gameView.Repaint();

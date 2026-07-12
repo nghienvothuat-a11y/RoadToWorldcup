@@ -26,6 +26,18 @@ namespace RoadToWorldcup
         private readonly Dictionary<PopupIcon, Sprite> popupIconSprites = new Dictionary<PopupIcon, Sprite>();
         private readonly Dictionary<SpinComponent, Sprite> spinComponentSprites = new Dictionary<SpinComponent, Sprite>();
         private Sprite spinWheelBaseSprite;
+        private const int CustomizePreviewLayer = 30;
+        private const int CosmeticIconLayer = 29;
+        private CosmeticItem previewHair;
+        private CosmeticItem previewJersey;
+        private CosmeticItem previewAccessory;
+        private GameObject customizePreviewRoot;
+        private Camera customizePreviewCamera;
+        private RenderTexture customizePreviewTexture;
+        private TextMesh customizePreviewNumber;
+        private readonly Dictionary<string, Texture2D> cosmeticIconTextures = new Dictionary<string, Texture2D>();
+        private Camera cosmeticIconCamera;
+        private GameObject cosmeticIconLight;
 
         private enum PopupIcon
         {
@@ -50,12 +62,42 @@ namespace RoadToWorldcup
         private void Awake()
         {
             uiFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            IapStorefront.EnsureInitialized();
+            IapStorefront.StateChanged += RefreshShopWhenVisible;
             if (!HasReferenceMenuArt())
             {
                 BuildWorld();
             }
 
             BuildCanvas();
+        }
+
+        private void Update()
+        {
+            if (customizePreviewRoot != null)
+            {
+                customizePreviewRoot.transform.Rotate(Vector3.up, 18f * Time.unscaledDeltaTime, Space.World);
+            }
+
+            if (customizePreviewNumber != null && customizePreviewCamera != null)
+            {
+                customizePreviewNumber.transform.rotation = customizePreviewCamera.transform.rotation;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            IapStorefront.StateChanged -= RefreshShopWhenVisible;
+            ClearCustomizePreview();
+            ClearCosmeticIconRenderer();
+        }
+
+        private void RefreshShopWhenVisible()
+        {
+            if (activeModal != null && activeModal.name.StartsWith("SHOP"))
+            {
+                ShowShop();
+            }
         }
 
         private void BuildWorld()
@@ -410,7 +452,7 @@ namespace RoadToWorldcup
             Texture2D texture = Resources.Load<Texture2D>(resourceName);
             if (texture == null)
             {
-                Debug.LogWarning("Road To Worldcup could not load menu sprite: " + resourceName);
+                Debug.LogWarning("The King: Road to Champion could not load menu sprite: " + resourceName);
                 return null;
             }
 
@@ -535,6 +577,7 @@ namespace RoadToWorldcup
 
         private RectTransform OpenModal(string title, Vector2 size)
         {
+            ClearCustomizePreview();
             if (activeModal != null) Destroy(activeModal);
             activeModal = new GameObject(title + "_Modal");
             activeModal.transform.SetParent(modalRoot, false);
@@ -583,7 +626,7 @@ namespace RoadToWorldcup
             Texture2D texture = Resources.Load<Texture2D>(PopupIconSheetResource);
             if (texture == null)
             {
-                Debug.LogWarning("Road To Worldcup could not load the generated popup icon sheet.");
+                Debug.LogWarning("The King: Road to Champion could not load the generated popup icon sheet.");
                 return null;
             }
 
@@ -628,7 +671,7 @@ namespace RoadToWorldcup
             Texture2D texture = Resources.Load<Texture2D>(SpinWheelBaseResource);
             if (texture == null)
             {
-                Debug.LogWarning("Road To Worldcup could not load the generated spin wheel base.");
+                Debug.LogWarning("The King: Road to Champion could not load the generated spin wheel base.");
                 return null;
             }
 
@@ -647,7 +690,7 @@ namespace RoadToWorldcup
             Texture2D texture = Resources.Load<Texture2D>(SpinComponentsResource);
             if (texture == null)
             {
-                Debug.LogWarning("Road To Worldcup could not load the generated spin components.");
+                Debug.LogWarning("The King: Road to Champion could not load the generated spin components.");
                 return null;
             }
 
@@ -706,6 +749,7 @@ namespace RoadToWorldcup
 
         private void CloseModal()
         {
+            ClearCustomizePreview();
             if (activeModal != null) Destroy(activeModal);
             activeModal = null;
         }
@@ -835,18 +879,24 @@ namespace RoadToWorldcup
 
         private void ShowShop()
         {
+            IapStorefront.EnsureInitialized();
             RectTransform card = OpenModal("SHOP", new Vector2(860f, 1120f));
             Text wallet = CreateText(card, "WALLET  " + GameSession.Coins + " GOLD  •  " + GameSession.Gems + " GEMS", 23, FontStyle.Bold, new Color(0.82f, 0.94f, 1f), TextAnchor.MiddleCenter);
             SetAnchor(wallet.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -145f), new Vector2(740f, 54f));
-            Text note = CreateText(card, "CHOOSE A BOOST PACK", 20, FontStyle.Bold, new Color(1f, 0.82f, 0.2f), TextAnchor.MiddleCenter);
+            Text note = CreateText(card, IapStorefront.Status, 20, FontStyle.Bold, new Color(1f, 0.82f, 0.2f), TextAnchor.MiddleCenter);
             SetAnchor(note.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -195f), new Vector2(740f, 50f));
-            string[] packs = { "STARTER KICK\n1,200 GOLD  |  $0.99", "STRIKER CHEST\n4,000 GOLD + 30 GEMS  |  $2.99", "LEGEND VAULT\n12,000 GOLD + 120 GEMS  |  $7.99" };
-            for (int i = 0; i < packs.Length; i++)
+            IList<IapPack> packs = IapStorefront.Packs;
+            for (int i = 0; i < packs.Count; i++)
             {
+                IapPack packData = packs[i];
                 RectTransform pack = CreateFeatureCard(card, "IAP_Pack_" + i, new Vector2(0f, 180f - i * 220f), new Vector2(700f, 180f), new Color(0.07f, 0.18f + i * 0.04f, 0.34f, 1f));
                 CreatePopupIcon(pack, PopupIcon.Shop, new Vector2(-265f, 0f), new Vector2(138f, 138f));
-                Text packText = CreateText(pack, packs[i], 24, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
-                SetAnchor(packText.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(75f, 0f), new Vector2(500f, 150f));
+                Text packText = CreateText(pack, packData.displayName + "\n" + packData.RewardText + "\n" + IapStorefront.GetLocalizedPrice(packData), 23, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
+                SetAnchor(packText.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(58f, 0f), new Vector2(420f, 150f));
+                Button buy = CreateButton(pack, IapStorefront.IsReady ? "BUY" : "...", IapStorefront.IsReady ? new Color(0.08f, 0.62f, 0.28f) : new Color(0.16f, 0.24f, 0.34f), Color.white, 20);
+                SetAnchor(buy.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-82f, 0f), new Vector2(110f, 64f));
+                buy.interactable = IapStorefront.IsReady && !IapStorefront.IsPurchasing;
+                buy.onClick.AddListener(delegate { IapStorefront.Purchase(packData); });
             }
             Text spending = CreateText(card, "LIFETIME SPENT: " + GameSession.TotalCoinsSpent + " GOLD  |  " + GameSession.TotalGemsSpent + " GEMS", 24, FontStyle.Bold, new Color(0.65f, 0.82f, 0.95f), TextAnchor.MiddleCenter);
             SetAnchor(spending.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 72f), new Vector2(720f, 52f));
@@ -896,36 +946,414 @@ namespace RoadToWorldcup
 
         private void ShowCustomize(CosmeticCategory category)
         {
+            if (previewHair == null) previewHair = GameSession.GetEquipped(CosmeticCategory.Hair);
+            if (previewJersey == null) previewJersey = GameSession.GetEquipped(CosmeticCategory.Jersey);
+            if (previewAccessory == null) previewAccessory = GameSession.GetEquipped(CosmeticCategory.Accessory);
+
             RectTransform card = OpenModal("CUSTOMIZE #10", new Vector2(920f, 1500f));
-            Text preview = CreateText(card, "#10", 88, FontStyle.Bold, GameSession.GetEquipped(CosmeticCategory.Jersey).color, TextAnchor.MiddleCenter);
-            SetAnchor(preview.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -170f), new Vector2(300f, 140f));
-            Text equipped = CreateText(card, "CURRENT JERSEY  •  " + GameSession.GetEquipped(CosmeticCategory.Jersey).displayName, 19, FontStyle.Bold, new Color(0.8f, 0.93f, 1f), TextAnchor.MiddleCenter);
-            SetAnchor(equipped.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -265f), new Vector2(760f, 46f));
+            CreateCustomizePreview(card);
             CreateCustomizeTab(card, "HAIR", CosmeticCategory.Hair, -265f, category);
             CreateCustomizeTab(card, "JERSEY", CosmeticCategory.Jersey, 0f, category);
             CreateCustomizeTab(card, "ACCESSORY", CosmeticCategory.Accessory, 265f, category);
 
+            Text wallet = CreateText(card, GameSession.Coins + " GOLD   |   " + GameSession.Gems + " GEMS", 22, FontStyle.Bold, TrophyGold, TextAnchor.MiddleCenter);
+            SetAnchor(wallet.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -635f), new Vector2(760f, 42f));
+
             IList<CosmeticItem> items = GameSession.GetCosmetics(category);
+            RectTransform content = CreateCustomizeScrollView(card, items.Count);
             for (int i = 0; i < items.Count; i++)
             {
                 CosmeticItem item = items[i];
-                RectTransform row = CreateFeatureCard(card, "Cosmetic_" + item.id, new Vector2(0f, 250f - i * 250f), new Vector2(800f, 205f), GameSession.IsEquipped(item) ? new Color(0.12f, 0.43f, 0.27f, 1f) : new Color(0.06f, 0.14f, 0.23f, 1f));
-                CreatePopupIcon(row, PopupIcon.Customize, new Vector2(-315f, 0f), new Vector2(142f, 142f));
-                Text name = CreateText(row, item.displayName + "\n" + (GameSession.IsOwned(item) ? (GameSession.IsEquipped(item) ? "EQUIPPED" : "OWNED") : item.price + " " + (item.currency == WalletCurrency.Coins ? "GOLD" : "GEMS")), 23, FontStyle.Bold, Color.white, TextAnchor.MiddleLeft);
-                SetAnchor(name.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(365f, 0f), new Vector2(320f, 120f));
-                Button action = CreateButton(row, GameSession.IsEquipped(item) ? "ON" : (GameSession.IsOwned(item) ? "EQUIP" : "BUY"), GameSession.IsEquipped(item) ? new Color(0.18f, 0.25f, 0.3f) : new Color(0.08f, 0.6f, 0.28f), Color.white, 23);
-                SetAnchor(action.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-104f, 0f), new Vector2(170f, 74f));
+                bool previewed = IsPreviewing(item);
+                int column = i % 3;
+                int rowIndex = i / 3;
+                RectTransform itemCard = CreateFeatureCard(content, "Cosmetic_" + item.id, Vector2.zero, new Vector2(248f, 186f), previewed ? new Color(0.10f, 0.42f, 0.48f, 1f) : (GameSession.IsEquipped(item) ? new Color(0.12f, 0.43f, 0.27f, 1f) : new Color(0.06f, 0.14f, 0.23f, 1f)));
+                SetAnchor(itemCard, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2((column - 1) * 270f, -98f - rowIndex * 202f), new Vector2(248f, 186f));
+
+                Button previewButton = CreateButton(itemCard, string.Empty, new Color(item.color.r * 0.45f, item.color.g * 0.45f, item.color.b * 0.45f, 1f), Color.white, 16);
+                SetAnchor(previewButton.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -52f), new Vector2(122f, 86f));
+                Text iconLabel = previewButton.GetComponentInChildren<Text>();
+                if (iconLabel != null) iconLabel.gameObject.SetActive(false);
+                CreateCosmeticIcon(previewButton.transform, item);
+                previewButton.onClick.AddListener(delegate { SetPreviewItem(item); ShowCustomize(category); });
+                Text name = CreateText(itemCard, item.displayName, 16, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
+                SetAnchor(name.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -112f), new Vector2(228f, 30f));
+                string price = GameSession.IsOwned(item) ? (GameSession.IsEquipped(item) ? "EQUIPPED" : "OWNED") : item.price + " " + (item.currency == WalletCurrency.Coins ? "GOLD" : "GEMS");
+                Text priceText = CreateText(itemCard, price, 14, FontStyle.Bold, previewed ? new Color(0.72f, 0.96f, 1f) : TrophyGold, TextAnchor.MiddleCenter);
+                SetAnchor(priceText.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -139f), new Vector2(224f, 24f));
+                Button action = CreateButton(itemCard, GameSession.IsEquipped(item) ? "ON" : (GameSession.IsOwned(item) ? "WEAR" : "BUY"), GameSession.IsEquipped(item) ? new Color(0.18f, 0.25f, 0.3f) : new Color(0.08f, 0.6f, 0.28f), Color.white, 16);
+                SetAnchor(action.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 16f), new Vector2(112f, 36f));
                 action.interactable = !GameSession.IsEquipped(item);
-                action.onClick.AddListener(delegate { string ignored; GameSession.PurchaseOrEquip(item, out ignored); ShowCustomize(category); });
+                action.onClick.AddListener(delegate { string ignored; if (GameSession.PurchaseOrEquip(item, out ignored)) SetPreviewItem(item); ShowCustomize(category); });
             }
             Text spend = CreateText(card, "SPENT: " + GameSession.TotalCoinsSpent + " GOLD  |  " + GameSession.TotalGemsSpent + " GEMS", 22, FontStyle.Bold, new Color(0.65f, 0.83f, 0.96f), TextAnchor.MiddleCenter);
             SetAnchor(spend.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 60f), new Vector2(700f, 45f));
         }
 
+        private RectTransform CreateCustomizeScrollView(RectTransform parent, int itemCount)
+        {
+            GameObject scrollObject = new GameObject("Cosmetic_Scroll", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
+            scrollObject.transform.SetParent(parent, false);
+            Image scrollImage = scrollObject.GetComponent<Image>();
+            scrollImage.color = new Color(0f, 0f, 0f, 0.16f);
+            SetAnchor(scrollObject.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -1025f), new Vector2(830f, 580f));
+
+            GameObject viewportObject = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            viewportObject.transform.SetParent(scrollObject.transform, false);
+            Image viewportImage = viewportObject.GetComponent<Image>();
+            viewportImage.color = new Color(1f, 1f, 1f, 0.01f);
+            viewportObject.GetComponent<Mask>().showMaskGraphic = false;
+            SetAnchor(viewportObject.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-18f, -14f));
+
+            GameObject contentObject = new GameObject("Content", typeof(RectTransform));
+            contentObject.transform.SetParent(viewportObject.transform, false);
+            RectTransform content = contentObject.GetComponent<RectTransform>();
+            content.anchorMin = new Vector2(0.5f, 1f);
+            content.anchorMax = new Vector2(0.5f, 1f);
+            content.pivot = new Vector2(0.5f, 1f);
+            content.anchoredPosition = Vector2.zero;
+            int rows = Mathf.CeilToInt(itemCount / 3f);
+            content.sizeDelta = new Vector2(800f, Mathf.Max(580f, rows * 202f + 8f));
+
+            ScrollRect scroll = scrollObject.GetComponent<ScrollRect>();
+            scroll.viewport = viewportObject.GetComponent<RectTransform>();
+            scroll.content = content;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 36f;
+            return content;
+        }
+
+        private bool IsPreviewing(CosmeticItem item)
+        {
+            return item != null && (item == previewHair || item == previewJersey || item == previewAccessory);
+        }
+
+        private void SetPreviewItem(CosmeticItem item)
+        {
+            if (item == null) return;
+            if (item.category == CosmeticCategory.Hair) previewHair = item;
+            else if (item.category == CosmeticCategory.Jersey) previewJersey = item;
+            else previewAccessory = item;
+        }
+
+        private void CreateCustomizePreview(RectTransform parent)
+        {
+            RectTransform previewFrame = CreateFeatureCard(parent, "Player_10_3D_Preview", Vector2.zero, new Vector2(470f, 350f), new Color(0.035f, 0.18f, 0.31f, 1f));
+            SetAnchor(previewFrame, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -340f), new Vector2(470f, 350f));
+            EnsureCustomizePreviewWorld();
+            RawImage surface = new GameObject("Preview_Render").AddComponent<RawImage>();
+            surface.transform.SetParent(previewFrame, false);
+            surface.texture = customizePreviewTexture;
+            surface.color = Color.white;
+            SetAnchor(surface.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-20f, -20f));
+
+            Text label = CreateText(previewFrame, "#10  3D PREVIEW", 19, FontStyle.Bold, TrophyGold, TextAnchor.MiddleCenter);
+            SetAnchor(label.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 18f), new Vector2(340f, 30f));
+        }
+
+        private void EnsureCustomizePreviewWorld()
+        {
+            ClearCustomizePreview();
+            Vector3 center = new Vector3(50f, 0f, 50f);
+            customizePreviewTexture = new RenderTexture(512, 512, 16, RenderTextureFormat.ARGB32);
+            customizePreviewTexture.name = "Customize_Player_10_Render";
+            customizePreviewTexture.Create();
+
+            GameObject cameraObject = new GameObject("Customize_Preview_Camera");
+            customizePreviewCamera = cameraObject.AddComponent<Camera>();
+            customizePreviewCamera.cullingMask = 1 << CustomizePreviewLayer;
+            customizePreviewCamera.clearFlags = CameraClearFlags.SolidColor;
+            customizePreviewCamera.backgroundColor = new Color(0.025f, 0.13f, 0.25f, 1f);
+            customizePreviewCamera.fieldOfView = 24f;
+            customizePreviewCamera.targetTexture = customizePreviewTexture;
+            customizePreviewCamera.transform.position = center + new Vector3(0f, 1.22f, -5.6f);
+            customizePreviewCamera.transform.LookAt(center + new Vector3(0f, 0.62f, 0f));
+
+            GameObject lightObject = new GameObject("Customize_Preview_Light");
+            lightObject.layer = CustomizePreviewLayer;
+            Light light = lightObject.AddComponent<Light>();
+            light.type = LightType.Directional;
+            light.intensity = 1.25f;
+            light.cullingMask = 1 << CustomizePreviewLayer;
+            light.transform.rotation = Quaternion.Euler(42f, -28f, 0f);
+
+            customizePreviewRoot = new GameObject("Customize_Preview_Player_10");
+            customizePreviewRoot.transform.position = center;
+            customizePreviewRoot.layer = CustomizePreviewLayer;
+            BuildCustomizePreviewPlayer(customizePreviewRoot.transform);
+        }
+
+        private void BuildCustomizePreviewPlayer(Transform root)
+        {
+            Material skin = MakeMaterial("CustomizePreviewSkin", new Color(0.96f, 0.72f, 0.48f));
+            Material shorts = MakeMaterial("CustomizePreviewShorts", new Color(0.025f, 0.03f, 0.06f));
+            Material boots = MakeMaterial("CustomizePreviewBoots", new Color(0.02f, 0.02f, 0.025f));
+            Material jersey = MakeMaterial("CustomizePreviewJersey", previewJersey.color);
+            Material hair = MakeMaterial("CustomizePreviewHair", previewHair.color);
+            Material accessory = MakeMaterial("CustomizePreviewAccessory", previewAccessory.color);
+            Material gold = MakeMaterial("CustomizePreviewGold", TrophyGold);
+
+            CreatePreviewPart(root, "Body", new Vector3(0f, 0.67f, 0f), new Vector3(0.62f, 0.88f, 0.38f), jersey);
+            CreatePreviewPart(root, "Shorts", new Vector3(0f, 0.31f, 0f), new Vector3(0.64f, 0.25f, 0.41f), shorts);
+            CreatePreviewPart(root, "Head", new Vector3(0f, 1.26f, 0f), new Vector3(0.46f, 0.46f, 0.46f), skin);
+            CreatePreviewPart(root, "Left_Arm", new Vector3(-0.45f, 0.7f, 0f), new Vector3(0.16f, 0.68f, 0.2f), skin);
+            CreatePreviewPart(root, "Right_Arm", new Vector3(0.45f, 0.7f, 0f), new Vector3(0.16f, 0.68f, 0.2f), skin);
+            CreatePreviewPart(root, "Left_Leg", new Vector3(-0.18f, -0.08f, 0f), new Vector3(0.18f, 0.54f, 0.21f), skin);
+            CreatePreviewPart(root, "Right_Leg", new Vector3(0.18f, -0.08f, 0f), new Vector3(0.18f, 0.54f, 0.21f), skin);
+            CreatePreviewPart(root, "Left_Boot", new Vector3(-0.18f, -0.38f, -0.05f), new Vector3(0.25f, 0.14f, 0.3f), boots);
+            CreatePreviewPart(root, "Right_Boot", new Vector3(0.18f, -0.38f, -0.05f), new Vector3(0.25f, 0.14f, 0.3f), boots);
+            CreatePreviewPart(root, "Number_Backplate", new Vector3(0f, 0.79f, -0.215f), new Vector3(0.48f, 0.48f, 0.024f), gold);
+            CreatePreviewPart(root, "Number_Background", new Vector3(0f, 0.79f, -0.232f), new Vector3(0.40f, 0.40f, 0.024f), shorts);
+
+            CreatePreviewHair(root, hair);
+            CreatePreviewAccessory(root, accessory, gold);
+
+            customizePreviewNumber = new GameObject("Preview_Number_10").AddComponent<TextMesh>();
+            customizePreviewNumber.transform.SetParent(root, false);
+            customizePreviewNumber.transform.localPosition = new Vector3(0f, 0.8f, -0.255f);
+            customizePreviewNumber.text = "10";
+            customizePreviewNumber.font = uiFont;
+            customizePreviewNumber.fontSize = 86;
+            customizePreviewNumber.characterSize = 0.04f;
+            customizePreviewNumber.anchor = TextAnchor.MiddleCenter;
+            customizePreviewNumber.alignment = TextAlignment.Center;
+            customizePreviewNumber.color = TrophyGold;
+            customizePreviewNumber.gameObject.layer = CustomizePreviewLayer;
+            customizePreviewNumber.transform.rotation = customizePreviewCamera.transform.rotation;
+        }
+
+        private void CreatePreviewHair(Transform root, Material material)
+        {
+            float height = previewHair.id == "hair_mohawk" || previewHair.id == "hair_blaze" ? 0.22f : 0.12f;
+            CreatePreviewPart(root, "Hair", new Vector3(0f, 1.51f, -0.02f), new Vector3(0.52f, height, 0.45f), material);
+            if (previewHair.id == "hair_braid" || previewHair.id == "hair_royal")
+            {
+                CreatePreviewPart(root, "Hair_Detail_Left", new Vector3(-0.25f, 1.35f, 0.04f), new Vector3(0.08f, 0.36f, 0.08f), material);
+                CreatePreviewPart(root, "Hair_Detail_Right", new Vector3(0.25f, 1.35f, 0.04f), new Vector3(0.08f, 0.36f, 0.08f), material);
+            }
+        }
+
+        private void CreatePreviewAccessory(Transform root, Material material, Material gold)
+        {
+            if (previewAccessory.id == "accessory_captain" || previewAccessory.id == "accessory_wrist")
+            {
+                CreatePreviewPart(root, "Arm_Band", new Vector3(-0.47f, 0.81f, -0.01f), new Vector3(0.19f, 0.12f, 0.24f), material);
+            }
+            else if (previewAccessory.id == "accessory_shades" || previewAccessory.id == "accessory_visor" || previewAccessory.id == "accessory_mask")
+            {
+                CreatePreviewPart(root, "Face_Accessory", new Vector3(0f, 1.27f, -0.26f), new Vector3(0.5f, 0.12f, 0.035f), material);
+            }
+            else if (previewAccessory.id == "accessory_crown")
+            {
+                CreatePreviewPart(root, "Crown", new Vector3(0f, 1.62f, 0f), new Vector3(0.56f, 0.15f, 0.42f), material);
+            }
+            else if (previewAccessory.id == "accessory_wings")
+            {
+                CreatePreviewPart(root, "Wing_Left", new Vector3(-0.52f, 0.84f, 0.1f), new Vector3(0.42f, 0.18f, 0.09f), material);
+                CreatePreviewPart(root, "Wing_Right", new Vector3(0.52f, 0.84f, 0.1f), new Vector3(0.42f, 0.18f, 0.09f), material);
+            }
+            else if (previewAccessory.id == "accessory_chain" || previewAccessory.id == "accessory_star")
+            {
+                CreatePreviewPart(root, "Chest_Badge", new Vector3(0f, 0.7f, -0.215f), new Vector3(0.16f, 0.16f, 0.035f), previewAccessory.id == "accessory_chain" ? gold : material);
+            }
+            else if (previewAccessory.id != "accessory_gloves")
+            {
+                CreatePreviewPart(root, "Style_Badge", new Vector3(0.26f, 0.72f, -0.215f), new Vector3(0.12f, 0.12f, 0.035f), material);
+            }
+        }
+
+        private GameObject CreatePreviewPart(Transform parent, string name, Vector3 localPosition, Vector3 localScale, Material material)
+        {
+            GameObject part = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            part.name = name;
+            part.transform.SetParent(parent, false);
+            part.transform.localPosition = localPosition;
+            part.transform.localScale = localScale;
+            part.layer = CustomizePreviewLayer;
+            Collider collider = part.GetComponent<Collider>();
+            if (collider != null) Destroy(collider);
+            part.GetComponent<Renderer>().material = material;
+            return part;
+        }
+
+        private void ClearCustomizePreview()
+        {
+            customizePreviewNumber = null;
+            if (customizePreviewRoot != null) Destroy(customizePreviewRoot);
+            if (customizePreviewCamera != null) Destroy(customizePreviewCamera.gameObject);
+            if (customizePreviewTexture != null)
+            {
+                customizePreviewTexture.Release();
+                Destroy(customizePreviewTexture);
+            }
+
+            customizePreviewRoot = null;
+            customizePreviewCamera = null;
+            customizePreviewTexture = null;
+        }
+
+        private void CreateCosmeticIcon(Transform parent, CosmeticItem item)
+        {
+            RawImage image = new GameObject("Item_3D_Icon").AddComponent<RawImage>();
+            image.transform.SetParent(parent, false);
+            image.texture = GetCosmeticIconTexture(item);
+            image.color = Color.white;
+            image.raycastTarget = false;
+            SetAnchor(image.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-10f, -10f));
+        }
+
+        private Texture2D GetCosmeticIconTexture(CosmeticItem item)
+        {
+            Texture2D texture;
+            if (cosmeticIconTextures.TryGetValue(item.id, out texture))
+            {
+                return texture;
+            }
+
+            EnsureCosmeticIconCamera();
+            Vector3 center = new Vector3(90f, 0f, 50f);
+            GameObject root = new GameObject("Icon_Model_" + item.id);
+            root.transform.position = center;
+            root.layer = CosmeticIconLayer;
+            BuildCosmeticIconModel(root.transform, item);
+
+            RenderTexture target = RenderTexture.GetTemporary(160, 160, 16, RenderTextureFormat.ARGB32);
+            cosmeticIconCamera.targetTexture = target;
+            cosmeticIconCamera.Render();
+            RenderTexture previous = RenderTexture.active;
+            RenderTexture.active = target;
+            texture = new Texture2D(160, 160, TextureFormat.RGBA32, false);
+            texture.name = "Cosmetic_3D_Icon_" + item.id;
+            texture.ReadPixels(new Rect(0f, 0f, 160f, 160f), 0, 0);
+            texture.Apply(false, false);
+            RenderTexture.active = previous;
+            cosmeticIconCamera.targetTexture = null;
+            RenderTexture.ReleaseTemporary(target);
+            Destroy(root);
+            cosmeticIconTextures.Add(item.id, texture);
+            return texture;
+        }
+
+        private void EnsureCosmeticIconCamera()
+        {
+            if (cosmeticIconCamera != null)
+            {
+                return;
+            }
+
+            Vector3 center = new Vector3(90f, 0f, 50f);
+            GameObject cameraObject = new GameObject("Cosmetic_Icon_Camera");
+            cosmeticIconCamera = cameraObject.AddComponent<Camera>();
+            cosmeticIconCamera.enabled = false;
+            cosmeticIconCamera.cullingMask = 1 << CosmeticIconLayer;
+            cosmeticIconCamera.clearFlags = CameraClearFlags.SolidColor;
+            cosmeticIconCamera.backgroundColor = new Color(0f, 0f, 0f, 0f);
+            cosmeticIconCamera.fieldOfView = 27f;
+            cosmeticIconCamera.transform.position = center + new Vector3(0f, 0.75f, -4.2f);
+            cosmeticIconCamera.transform.LookAt(center + new Vector3(0f, 0.45f, 0f));
+
+            cosmeticIconLight = new GameObject("Cosmetic_Icon_Light");
+            cosmeticIconLight.layer = CosmeticIconLayer;
+            Light light = cosmeticIconLight.AddComponent<Light>();
+            light.type = LightType.Directional;
+            light.intensity = 1.3f;
+            light.cullingMask = 1 << CosmeticIconLayer;
+            light.transform.rotation = Quaternion.Euler(40f, -28f, 0f);
+        }
+
+        private void BuildCosmeticIconModel(Transform root, CosmeticItem item)
+        {
+            Material skin = MakeMaterial("Icon_Skin_" + item.id, new Color(0.96f, 0.72f, 0.48f));
+            Material dark = MakeMaterial("Icon_Dark_" + item.id, new Color(0.03f, 0.04f, 0.08f));
+            Material style = MakeMaterial("Icon_Style_" + item.id, item.color);
+            Material gold = MakeMaterial("Icon_Gold_" + item.id, TrophyGold);
+
+            if (item.category == CosmeticCategory.Hair)
+            {
+                CreateIconPart(root, "Head", PrimitiveType.Sphere, new Vector3(0f, 0.4f, 0f), new Vector3(0.92f, 0.92f, 0.92f), skin);
+                float height = item.id == "hair_mohawk" || item.id == "hair_blaze" ? 0.52f : 0.28f;
+                CreateIconPart(root, "Hair", PrimitiveType.Cube, new Vector3(0f, 0.85f, -0.02f), new Vector3(0.92f, height, 0.78f), style);
+                if (item.id == "hair_braid" || item.id == "hair_royal")
+                {
+                    CreateIconPart(root, "Braid_Left", PrimitiveType.Capsule, new Vector3(-0.42f, 0.38f, 0.08f), new Vector3(0.16f, 0.46f, 0.16f), style);
+                    CreateIconPart(root, "Braid_Right", PrimitiveType.Capsule, new Vector3(0.42f, 0.38f, 0.08f), new Vector3(0.16f, 0.46f, 0.16f), style);
+                }
+                return;
+            }
+
+            CreateIconPart(root, "Mini_Body", PrimitiveType.Cube, new Vector3(0f, 0.38f, 0f), new Vector3(0.92f, 0.92f, 0.48f), item.category == CosmeticCategory.Jersey ? style : dark);
+            CreateIconPart(root, "Mini_Head", PrimitiveType.Sphere, new Vector3(0f, 1.08f, 0f), new Vector3(0.52f, 0.52f, 0.52f), skin);
+
+            if (item.category == CosmeticCategory.Jersey)
+            {
+                CreateIconPart(root, "Number_Plate", PrimitiveType.Cube, new Vector3(0f, 0.48f, -0.27f), new Vector3(0.48f, 0.48f, 0.03f), dark);
+                TextMesh number = new GameObject("Icon_Number_10").AddComponent<TextMesh>();
+                number.transform.SetParent(root, false);
+                number.transform.localPosition = new Vector3(0f, 0.48f, -0.295f);
+                number.transform.rotation = cosmeticIconCamera.transform.rotation;
+                number.text = "10";
+                number.font = uiFont;
+                number.fontSize = 72;
+                number.characterSize = 0.034f;
+                number.anchor = TextAnchor.MiddleCenter;
+                number.alignment = TextAlignment.Center;
+                number.color = gold.color;
+                number.gameObject.layer = CosmeticIconLayer;
+                return;
+            }
+
+            if (item.id == "accessory_crown")
+            {
+                CreateIconPart(root, "Crown", PrimitiveType.Cube, new Vector3(0f, 1.5f, 0f), new Vector3(0.78f, 0.22f, 0.54f), style);
+            }
+            else if (item.id == "accessory_shades" || item.id == "accessory_visor" || item.id == "accessory_mask")
+            {
+                CreateIconPart(root, "Face_Style", PrimitiveType.Cube, new Vector3(0f, 1.08f, -0.29f), new Vector3(0.62f, 0.17f, 0.04f), style);
+            }
+            else if (item.id == "accessory_wings")
+            {
+                CreateIconPart(root, "Wing_Left", PrimitiveType.Cube, new Vector3(-0.68f, 0.72f, 0.1f), new Vector3(0.58f, 0.22f, 0.12f), style);
+                CreateIconPart(root, "Wing_Right", PrimitiveType.Cube, new Vector3(0.68f, 0.72f, 0.1f), new Vector3(0.58f, 0.22f, 0.12f), style);
+            }
+            else
+            {
+                CreateIconPart(root, "Style_Badge", PrimitiveType.Sphere, new Vector3(0f, 0.46f, -0.3f), new Vector3(0.34f, 0.34f, 0.1f), style);
+            }
+        }
+
+        private void CreateIconPart(Transform parent, string name, PrimitiveType primitive, Vector3 localPosition, Vector3 localScale, Material material)
+        {
+            GameObject part = GameObject.CreatePrimitive(primitive);
+            part.name = name;
+            part.transform.SetParent(parent, false);
+            part.transform.localPosition = localPosition;
+            part.transform.localScale = localScale;
+            part.layer = CosmeticIconLayer;
+            Collider collider = part.GetComponent<Collider>();
+            if (collider != null) Destroy(collider);
+            part.GetComponent<Renderer>().material = material;
+        }
+
+        private void ClearCosmeticIconRenderer()
+        {
+            if (cosmeticIconCamera != null) Destroy(cosmeticIconCamera.gameObject);
+            if (cosmeticIconLight != null) Destroy(cosmeticIconLight);
+            foreach (KeyValuePair<string, Texture2D> pair in cosmeticIconTextures)
+            {
+                if (pair.Value != null) Destroy(pair.Value);
+            }
+
+            cosmeticIconTextures.Clear();
+            cosmeticIconCamera = null;
+            cosmeticIconLight = null;
+        }
+
         private void CreateCustomizeTab(RectTransform parent, string label, CosmeticCategory tab, float x, CosmeticCategory active)
         {
             Button button = CreateButton(parent, label, tab == active ? new Color(0.08f, 0.58f, 0.76f) : new Color(0.13f, 0.2f, 0.29f), Color.white, 20);
-            SetAnchor(button.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(x, -345f), new Vector2(240f, 66f));
+            SetAnchor(button.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(x, -560f), new Vector2(240f, 66f));
             button.onClick.AddListener(delegate { ShowCustomize(tab); });
         }
 

@@ -12,6 +12,7 @@ namespace RoadToWorldcup
         private const float OriginalPitchWidth = 8.2f;
         private const float FirstPlayerScreenYFromBottom = 0.34f;
         private const float AimChargeSpeedMultiplier = 0.7f;
+        private const float PassAimSweepAmplitudeMultiplier = 1.3f;
         private const float LobActivationThreshold = 0.12f;
         private const float MinLobHeight = 2.25f;
         private const float MaxLobHeight = 4.35f;
@@ -34,6 +35,7 @@ namespace RoadToWorldcup
         private const float RingHeight = 0.045f;
         private const float BallPostRangeRollFriction = 16f;
         private const float BallStopSpeed = 0.12f;
+        private const float GemCollectRadius = 0.46f;
 
         private static readonly Dictionary<string, Sprite> uiRoundedSpriteCache = new Dictionary<string, Sprite>();
 
@@ -121,6 +123,15 @@ namespace RoadToWorldcup
             public float chargeTime;
             public List<FriendlyDef> friendlies = new List<FriendlyDef>();
             public List<OpponentDef> opponents = new List<OpponentDef>();
+            public List<Vector3> gemPositions = new List<Vector3>();
+        }
+
+        private sealed class GemRuntime
+        {
+            public GameObject root;
+            public Vector3 position;
+            public bool collected;
+            public float idleOffset;
         }
 
         private sealed class FriendlyRuntime
@@ -168,6 +179,7 @@ namespace RoadToWorldcup
         private readonly List<LevelDef> levels = new List<LevelDef>();
         private readonly List<FriendlyRuntime> friendlies = new List<FriendlyRuntime>();
         private readonly List<OpponentRuntime> opponents = new List<OpponentRuntime>();
+        private readonly List<GemRuntime> gems = new List<GemRuntime>();
         private readonly List<GameObject> dashedPreviewSegments = new List<GameObject>();
         private readonly List<LineRenderer> dashedPreviewLines = new List<LineRenderer>();
         private readonly List<LineRenderer> lightningBranchLines = new List<LineRenderer>();
@@ -249,16 +261,20 @@ namespace RoadToWorldcup
         private Text levelLabel;
         private Text promptText;
         private Text powerText;
+        private Text walletText;
         private Image powerFill;
         private GameObject resultOverlay;
         private Text resultTitle;
+        private Text resultRewardLabel;
         private Text resultReason;
+        private Text resultGemReward;
         private Button resultNextButton;
         private GameObject pauseOverlay;
         private GameObject levelSelectOverlay;
         private GameObject celebrationUiRoot;
         private bool celebrationUiActive;
         private bool goalSlowMotionTriggered;
+        private int gemsCollectedThisLevel;
         private float defaultFixedDeltaTime;
 
         private Material friendlyBlue;
@@ -280,6 +296,7 @@ namespace RoadToWorldcup
         private Material goldMaterial;
         private Material netMaterial;
         private Material softLineWhite;
+        private Material gemMaterial;
 
         private void Awake()
         {
@@ -349,6 +366,7 @@ namespace RoadToWorldcup
             FaceNumberLabelsToCamera();
             UpdateReferee(Time.deltaTime);
             UpdateWeather(Time.deltaTime);
+            UpdateGemPresentation();
             UpdateRingPositions();
             UpdateReceiverTargetMarker();
             UpdateCharacterAnimation(Time.deltaTime);
@@ -377,6 +395,7 @@ namespace RoadToWorldcup
             goalkeeperCatchTimer = 0f;
             headerClearTimer = 0f;
             headerClearOpponent = null;
+            gemsCollectedThisLevel = 0;
             rainActive = level.number % 3 == 0;
             nextLightningTimer = GetNextLightningInterval();
             lightningVisualTimer = 0f;
@@ -409,6 +428,7 @@ namespace RoadToWorldcup
 
             friendlies.Clear();
             opponents.Clear();
+            gems.Clear();
             dashedPreviewSegments.Clear();
             dashedPreviewLines.Clear();
             ball = null;
@@ -460,6 +480,7 @@ namespace RoadToWorldcup
             ball.transform.localScale = new Vector3(0.32f, 0.32f, 0.32f);
             ball.GetComponent<Renderer>().material = ballMaterial;
             CreateSoccerBallPattern();
+            CreateLevelGems();
             CreateReceiverTargetMarker();
 
             aimArrow = CreateLine("Aim_Arrow", new Color(0.9f, 1f, 0.9f, 0.8f), 0.08f, false);
@@ -1216,6 +1237,23 @@ namespace RoadToWorldcup
                 {
                     CreateBlockPart(runtime.root.transform, "Golden_Crown", new Vector3(0f, 1.4f, -0.01f), new Vector3(0.42f, 0.12f, 0.3f), playerAccessoryMaterial);
                 }
+                else if (accessory != null && (accessory.id == "accessory_wrist" || accessory.id == "accessory_headband"))
+                {
+                    CreateBlockPart(runtime.root.transform, "Style_Band", new Vector3(-0.38f, accessory.id == "accessory_headband" ? 1.21f : 0.75f, -0.01f), new Vector3(0.1f, 0.11f, 0.18f), playerAccessoryMaterial);
+                }
+                else if (accessory != null && (accessory.id == "accessory_mask" || accessory.id == "accessory_visor"))
+                {
+                    CreateBlockPart(runtime.root.transform, "Face_Style", new Vector3(0f, 1.08f, -0.19f), new Vector3(0.38f, 0.09f, 0.03f), playerAccessoryMaterial);
+                }
+                else if (accessory != null && accessory.id == "accessory_wings")
+                {
+                    CreateBlockPart(runtime.root.transform, "Wing_Left", new Vector3(-0.45f, 0.78f, 0.06f), new Vector3(0.36f, 0.12f, 0.1f), playerAccessoryMaterial);
+                    CreateBlockPart(runtime.root.transform, "Wing_Right", new Vector3(0.45f, 0.78f, 0.06f), new Vector3(0.36f, 0.12f, 0.1f), playerAccessoryMaterial);
+                }
+                else if (accessory != null)
+                {
+                    CreateBlockPart(runtime.root.transform, "Style_Badge", new Vector3(0.2f, 0.72f, -0.18f), new Vector3(0.12f, 0.12f, 0.025f), playerAccessoryMaterial);
+                }
             }
             runtime.idleSeed = friendlies.Count * 0.73f + def.number * 0.11f;
 
@@ -1321,6 +1359,74 @@ namespace RoadToWorldcup
             patch.GetComponent<Renderer>().material = material;
         }
 
+        private void CreateLevelGems()
+        {
+            for (int i = 0; i < level.gemPositions.Count; i++)
+            {
+                Vector3 position = level.gemPositions[i];
+                GemRuntime runtime = new GemRuntime();
+                runtime.position = position;
+                runtime.idleOffset = i * 0.83f + level.number * 0.21f;
+                runtime.root = new GameObject("Pass_Gem_" + (i + 1));
+                runtime.root.transform.SetParent(worldRoot.transform, false);
+                runtime.root.transform.position = position;
+
+                GameObject core = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                core.name = "Gem_Core";
+                core.transform.SetParent(runtime.root.transform, false);
+                core.transform.localScale = new Vector3(0.22f, 0.22f, 0.22f);
+                core.transform.localRotation = Quaternion.Euler(45f, 45f, 0f);
+                core.GetComponent<Renderer>().material = gemMaterial;
+
+                GameObject glow = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                glow.name = "Gem_Glow";
+                glow.transform.SetParent(runtime.root.transform, false);
+                glow.transform.localScale = new Vector3(0.13f, 0.13f, 0.13f);
+                glow.GetComponent<Renderer>().material = goldMaterial;
+                gems.Add(runtime);
+            }
+        }
+
+        private void UpdateGemPresentation()
+        {
+            for (int i = 0; i < gems.Count; i++)
+            {
+                GemRuntime gem = gems[i];
+                if (gem.collected || gem.root == null)
+                {
+                    continue;
+                }
+
+                float phase = Time.time * 2.6f + gem.idleOffset;
+                gem.root.transform.position = gem.position + Vector3.up * (0.14f + Mathf.Sin(phase) * 0.06f);
+                gem.root.transform.Rotate(Vector3.up, 110f * Time.deltaTime, Space.World);
+            }
+        }
+
+        private void TryCollectGems(Vector3 previousBallPosition, Vector3 currentBallPosition)
+        {
+            for (int i = 0; i < gems.Count; i++)
+            {
+                GemRuntime gem = gems[i];
+                if (gem.collected || gem.root == null)
+                {
+                    continue;
+                }
+
+                if (DistanceToSegment(gem.root.transform.position, previousBallPosition, currentBallPosition) > GemCollectRadius)
+                {
+                    continue;
+                }
+
+                gem.collected = true;
+                gem.root.SetActive(false);
+                gemsCollectedThisLevel++;
+                GameSession.CollectGems(1);
+                UpdateWalletText();
+                CreateBurstParticles("Gem_Collect", gem.root.transform.position, new Color(0.10f, 0.92f, 1f), 14, 0.08f, 1.5f);
+            }
+        }
+
         private void CreateReceiverTargetMarker()
         {
             receiverTargetRing = CreateRing("Receiver_Target_Ring", new Color(1f, 0.86f, 0.08f, 0.5f), 0.055f, 0.5f);
@@ -1356,6 +1462,12 @@ namespace RoadToWorldcup
             levelLabel = CreateText(levelBadge, "LEVEL " + level.number, 32, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
             SetAnchor(levelLabel.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
+            RectTransform walletBadge = CreateArtPanel(root, "Gem_Wallet", UiPanelFill, new Color(0.18f, 0.94f, 1f, 0.52f), true);
+            SetAnchor(walletBadge, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-168f, -72f), new Vector2(268f, 60f));
+            walletText = CreateText(walletBadge, string.Empty, 26, FontStyle.Bold, new Color(0.35f, 0.94f, 1f), TextAnchor.MiddleCenter);
+            SetAnchor(walletText.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            UpdateWalletText();
+
             RectTransform goalCard = CreateArtPanel(root, "Goal_Card", new Color(0.02f, 0.08f, 0.13f, 0.76f), UiPanelBorder, true);
             SetAnchor(goalCard, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(165f, -154f), new Vector2(280f, 96f));
 
@@ -1366,13 +1478,13 @@ namespace RoadToWorldcup
             SetAnchor(goalText.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 24f), new Vector2(230f, 40f));
 
             RectTransform howToCard = CreateArtPanel(root, "How_To_Play_Card", new Color(0.02f, 0.11f, 0.07f, 0.72f), new Color(0.86f, 1f, 0.64f, 0.36f), true);
-            SetAnchor(howToCard, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(240f, 112f), new Vector2(420f, 116f));
+            SetAnchor(howToCard, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(240f, 152f), new Vector2(420f, 144f));
 
             Text howToTitle = CreateText(howToCard, "TIP", 18, FontStyle.Bold, new Color(0.68f, 0.88f, 1f), TextAnchor.MiddleLeft);
             SetAnchor(howToTitle.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(30f, -22f), new Vector2(48f, 28f));
 
-            promptText = CreateText(howToCard, "HOLD TO AIM  |  RELEASE TO PASS", 20, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
-            SetAnchor(promptText.rectTransform, Vector2.zero, Vector2.one, new Vector2(0f, -14f), new Vector2(-28f, -46f));
+            promptText = CreateText(howToCard, "HOLD TO AIM  |  RELEASE TO PASS\nPULL BACK FOR A LOB", 19, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
+            SetAnchor(promptText.rectTransform, Vector2.zero, Vector2.one, new Vector2(0f, 8f), new Vector2(-28f, -42f));
 
             Button pauseButton = CreateButton(root, "II", UiPanelFill, Color.white, 32);
             SetAnchor(pauseButton.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-58f, -62f), new Vector2(56f, 52f));
@@ -1484,24 +1596,30 @@ namespace RoadToWorldcup
             SetAnchor(resultOverlay.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
             RectTransform card = CreateArtPanel(resultOverlay.transform, "Result_Card", new Color(0.02f, 0.06f, 0.12f, 0.96f), UiPanelBorder, true);
-            SetAnchor(card, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760f, 590f));
+            SetAnchor(card, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760f, 650f));
 
             resultTitle = CreateText(card, "LEVEL COMPLETE", 54, FontStyle.Bold, UiTitleGold, TextAnchor.MiddleCenter);
-            SetAnchor(resultTitle.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -90f), new Vector2(660f, 110f));
+            SetAnchor(resultTitle.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -82f), new Vector2(660f, 92f));
 
-            resultReason = CreateText(card, "+100 coins", 32, FontStyle.Bold, UiTitleGold, TextAnchor.MiddleCenter);
-            SetAnchor(resultReason.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -176f), new Vector2(660f, 74f));
+            resultRewardLabel = CreateText(card, "MATCH REWARDS", 22, FontStyle.Bold, new Color(0.68f, 0.88f, 1f), TextAnchor.MiddleCenter);
+            SetAnchor(resultRewardLabel.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -154f), new Vector2(660f, 40f));
+
+            resultReason = CreateText(card, "+100 GOLD", 48, FontStyle.Bold, new Color(1f, 0.76f, 0.12f), TextAnchor.MiddleCenter);
+            SetAnchor(resultReason.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -236f), new Vector2(660f, 120f));
+
+            resultGemReward = CreateText(card, "+1 GEM", 42, FontStyle.Bold, new Color(0.20f, 0.92f, 1f), TextAnchor.MiddleCenter);
+            SetAnchor(resultGemReward.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -286f), new Vector2(660f, 64f));
 
             resultNextButton = CreateButton(card, "NEXT", UiButtonGreen, Color.white, 34);
-            SetAnchor(resultNextButton.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 44f), new Vector2(430f, 82f));
+            SetAnchor(resultNextButton.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -70f), new Vector2(430f, 82f));
             resultNextButton.onClick.AddListener(NextLevel);
 
             Button retry = CreateButton(card, "RETRY", UiButtonBlue, Color.white, 34);
-            SetAnchor(retry.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -62f), new Vector2(430f, 82f));
+            SetAnchor(retry.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -170f), new Vector2(430f, 82f));
             retry.onClick.AddListener(Retry);
 
             Button menu = CreateButton(card, "MENU", UiButtonDark, Color.white, 34);
-            SetAnchor(menu.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -168f), new Vector2(430f, 82f));
+            SetAnchor(menu.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -270f), new Vector2(430f, 82f));
             menu.onClick.AddListener(SceneLoader.LoadMainMenu);
 
             resultOverlay.SetActive(false);
@@ -1776,6 +1894,7 @@ namespace RoadToWorldcup
             nextPosition.y = ballGroundHeight + ballVerticalOffset;
             ball.transform.position = nextPosition;
             RotateBall(deltaTime);
+            TryCollectGems(previousBallPosition, nextPosition);
 
             Vector3 ballPosition = ball.transform.position;
             TryDeflectBallFromReferee(ballPosition);
@@ -2192,7 +2311,12 @@ namespace RoadToWorldcup
             SetReceiverTargetVisible(false);
             StopCelebrationUi();
             resultTitle.text = "TRY AGAIN";
+            resultRewardLabel.gameObject.SetActive(false);
+            resultGemReward.gameObject.SetActive(false);
             resultReason.text = GetReasonText(reason);
+            resultReason.fontSize = 32;
+            resultReason.rectTransform.anchoredPosition = new Vector2(0f, -176f);
+            resultReason.rectTransform.sizeDelta = new Vector2(660f, 74f);
             resultReason.color = new Color(1f, 0.36f, 0.26f);
             resultNextButton.gameObject.SetActive(false);
             resultOverlay.SetActive(true);
@@ -2206,15 +2330,17 @@ namespace RoadToWorldcup
             SetReceiverTargetVisible(false);
             int earnedCoins = GameSession.CompleteLevel(level.number);
             resultTitle.text = level.number >= GameSession.LevelCount ? "CUP COMPLETE" : "LEVEL COMPLETE";
-            if (earnedCoins > 0)
+            resultRewardLabel.gameObject.SetActive(true);
+            resultGemReward.gameObject.SetActive(gemsCollectedThisLevel > 0);
+            resultReason.text = "+" + earnedCoins + " GOLD";
+            resultReason.fontSize = 48;
+            resultReason.color = new Color(1f, 0.76f, 0.12f);
+            resultReason.rectTransform.anchoredPosition = new Vector2(0f, gemsCollectedThisLevel > 0 ? -218f : -244f);
+            resultReason.rectTransform.sizeDelta = new Vector2(660f, 64f);
+            if (gemsCollectedThisLevel > 0)
             {
-                resultReason.text = "+" + earnedCoins + " GOLD  |  FIRST CLEAR";
+                resultGemReward.text = "+" + gemsCollectedThisLevel + (gemsCollectedThisLevel == 1 ? " GEM" : " GEMS");
             }
-            else
-            {
-                resultReason.text = level.number >= GameSession.LevelCount ? "ALL 30 LEVELS CLEARED" : "LEVEL CLEARED | REWARD COLLECTED";
-            }
-            resultReason.color = UiTitleGold;
             resultNextButton.gameObject.SetActive(true);
             Text nextText = resultNextButton.GetComponentInChildren<Text>();
             if (nextText != null)
@@ -3536,6 +3662,27 @@ namespace RoadToWorldcup
             return Mathf.Sqrt(dx * dx + dz * dz);
         }
 
+        private static float DistanceToSegment(Vector3 point, Vector3 start, Vector3 end)
+        {
+            Vector3 segment = end - start;
+            float lengthSquared = segment.sqrMagnitude;
+            if (lengthSquared < 0.0001f)
+            {
+                return Vector3.Distance(point, start);
+            }
+
+            float t = Mathf.Clamp01(Vector3.Dot(point - start, segment) / lengthSquared);
+            return Vector3.Distance(point, start + segment * t);
+        }
+
+        private void UpdateWalletText()
+        {
+            if (walletText != null)
+            {
+                walletText.text = GameSession.Gems + " GEM";
+            }
+        }
+
         private static T FindSceneObject<T>() where T : Object
         {
 #if UNITY_2023_1_OR_NEWER
@@ -3719,6 +3866,7 @@ namespace RoadToWorldcup
             playerHairMaterial = MakeMaterial("Player_Hair_Style", playerHair != null ? playerHair.color : hairMaterial.color);
             playerJerseyMaterial = MakeMaterial("Player_Jersey_Style", playerJersey != null ? playerJersey.color : friendlyBlue.color);
             playerAccessoryMaterial = MakeMaterial("Player_Accessory_Style", playerAccessory != null ? playerAccessory.color : new Color(1f, 0.76f, 0.12f));
+            gemMaterial = MakeMaterial("Collectible_Gem", new Color(0.10f, 0.92f, 1f));
             blackMaterial = MakeMaterial("Kit_Black", new Color(0.02f, 0.02f, 0.025f));
             goldMaterial = MakeMaterial("Gold_Accent", new Color(1f, 0.76f, 0.12f));
             netMaterial = MakeMaterial("Goal_Net", new Color(0.75f, 0.92f, 1f));
@@ -3768,7 +3916,26 @@ namespace RoadToWorldcup
 
             for (int i = 0; i < levels.Count; i++)
             {
+                ExpandPassAimSweep(levels[i]);
+                AddPassRouteGems(levels[i]);
                 ApplyPitchScale(levels[i]);
+            }
+        }
+
+        private static void ExpandPassAimSweep(LevelDef levelDef)
+        {
+            for (int i = 0; i < levelDef.friendlies.Count; i++)
+            {
+                FriendlyDef friendly = levelDef.friendlies[i];
+                if (friendly.behavior != ActiveBehaviorType.AutoRotate)
+                {
+                    continue;
+                }
+
+                float center = (friendly.sweepMinYaw + friendly.sweepMaxYaw) * 0.5f;
+                float halfAmplitude = (friendly.sweepMaxYaw - friendly.sweepMinYaw) * 0.5f * PassAimSweepAmplitudeMultiplier;
+                friendly.sweepMinYaw = center - halfAmplitude;
+                friendly.sweepMaxYaw = center + halfAmplitude;
             }
         }
 
@@ -3797,6 +3964,32 @@ namespace RoadToWorldcup
                 opponent.position = ScaleGameplayPosition(opponent.position);
                 opponent.lateralStart = ScaleGameplayPosition(opponent.lateralStart);
                 opponent.lateralEnd = ScaleGameplayPosition(opponent.lateralEnd);
+            }
+
+            for (int i = 0; i < levelDef.gemPositions.Count; i++)
+            {
+                levelDef.gemPositions[i] = ScaleGameplayPosition(levelDef.gemPositions[i]);
+            }
+        }
+
+        private static void AddPassRouteGems(LevelDef levelDef)
+        {
+            if (levelDef.friendlies.Count < 2)
+            {
+                return;
+            }
+
+            int gemCount = levelDef.number % 2 == 0 ? 3 : 2;
+            int segmentCount = levelDef.friendlies.Count - 1;
+            for (int i = 0; i < gemCount; i++)
+            {
+                int segmentIndex = Mathf.Clamp(Mathf.FloorToInt((i + 0.5f) * segmentCount / gemCount), 0, segmentCount - 1);
+                Vector3 start = levelDef.friendlies[segmentIndex].position;
+                Vector3 end = levelDef.friendlies[segmentIndex + 1].position;
+                float along = 0.46f + ((levelDef.number + i * 3) % 3 - 1) * 0.05f;
+                Vector3 position = Vector3.Lerp(start, end, along);
+                position.y = 0.2f;
+                levelDef.gemPositions.Add(position);
             }
         }
 
