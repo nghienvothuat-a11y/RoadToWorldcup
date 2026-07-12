@@ -328,9 +328,8 @@ namespace RoadToWorldcup
                 SceneLoader.LoadGameplay();
             });
 
-            CreateMenuButton(safeRoot, "RANKING", new Color(0.04f, 0.32f, 0.92f), 262f);
-            CreateMenuButton(safeRoot, "CUSTOMIZE", new Color(1f, 0.63f, 0.12f), 166f);
-            CreateMenuButton(safeRoot, "MISSIONS", new Color(0.48f, 0.2f, 0.88f), 70f);
+            CreateMenuButton(safeRoot, "CUSTOMIZE", new Color(1f, 0.63f, 0.12f), 262f);
+            CreateMenuButton(safeRoot, "MISSIONS", new Color(0.48f, 0.2f, 0.88f), 160f);
 
             BuildComingSoon(root);
         }
@@ -400,10 +399,8 @@ namespace RoadToWorldcup
             CreateSpriteButton(root, "Settings", "MainMenuUI/button_settings", "MainMenuUI/button_settings_pressed", 112f, 1394f, 166f, 182f, ShowSettings, false);
 
             CreateSpriteButton(root, "Play", "MainMenuUI/button_play", "MainMenuUI/button_play_pressed", 540f, 1414f, 560f, 136f, delegate { SceneLoader.LoadGameplay(); });
-            CreateSpriteButton(root, "Tournament", "MainMenuUI/button_tournament", "MainMenuUI/button_tournament_pressed", 540f, 1522f, 540f, 116f, ShowRanking);
-            CreateReferenceTag(root, "RANKING", 540f, 1522f, new Color(0.9f, 0.97f, 1f));
-            CreateSpriteButton(root, "Customize", "MainMenuUI/button_customize", "MainMenuUI/button_customize_pressed", 540f, 1626f, 540f, 116f, delegate { ShowCustomize(CosmeticCategory.Hair); });
-            CreateSpriteButton(root, "Missions", "MainMenuUI/button_missions", "MainMenuUI/button_missions_pressed", 540f, 1730f, 540f, 116f, ShowMissions);
+            CreateSpriteButton(root, "Customize", "MainMenuUI/button_customize", "MainMenuUI/button_customize_pressed", 540f, 1534f, 540f, 116f, delegate { ShowCustomize(CosmeticCategory.Hair); });
+            CreateSpriteButton(root, "Missions", "MainMenuUI/button_missions", "MainMenuUI/button_missions_pressed", 540f, 1654f, 540f, 116f, ShowMissions);
         }
 
         private Image CreateSpriteImage(RectTransform root, string name, string resourceName, float referenceX, float referenceY, float width, float height, bool preserveAspect = true)
@@ -457,18 +454,6 @@ namespace RoadToWorldcup
             }
 
             return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), 100f);
-        }
-
-        private void CreateReferenceTag(RectTransform root, string value, float referenceX, float referenceY, Color color)
-        {
-            GameObject plateObject = new GameObject(value + "_TagPlate");
-            plateObject.transform.SetParent(root, false);
-            Image plate = plateObject.AddComponent<Image>();
-            plate.color = new Color(0.04f, 0.24f, 0.72f, 0.96f);
-            SetReferenceRect(plateObject.GetComponent<RectTransform>(), referenceX, referenceY, 350f, 58f);
-            Text tag = CreateText(root, value, 28, FontStyle.Bold, color, TextAnchor.MiddleCenter);
-            tag.AddShadow();
-            SetReferenceRect(tag.rectTransform, referenceX, referenceY, 300f, 64f);
         }
 
         private Button CreateCurrencyButton(RectTransform root, string name, string value, Color accent, float referenceX, float referenceY, UnityEngine.Events.UnityAction onClick)
@@ -562,8 +547,7 @@ namespace RoadToWorldcup
         {
             Button button = CreateButton(root, label, color, Color.white, 38);
             SetAnchor(button.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, y), new Vector2(560f, 88f));
-            if (label == "RANKING") button.onClick.AddListener(ShowRanking);
-            else if (label == "CUSTOMIZE") button.onClick.AddListener(delegate { ShowCustomize(CosmeticCategory.Hair); });
+            if (label == "CUSTOMIZE") button.onClick.AddListener(delegate { ShowCustomize(CosmeticCategory.Hair); });
             else button.onClick.AddListener(ShowMissions);
         }
 
@@ -575,7 +559,7 @@ namespace RoadToWorldcup
             else ShowSettings();
         }
 
-        private RectTransform OpenModal(string title, Vector2 size)
+        private RectTransform OpenModal(string title, Vector2 size, bool showTitleIcon = true)
         {
             ClearCustomizePreview();
             if (activeModal != null) Destroy(activeModal);
@@ -587,20 +571,25 @@ namespace RoadToWorldcup
             SetAnchor(activeModal.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
             RectTransform card = CreateModalCard(activeModal.transform, title + "_Card", size);
-            int titleSize = title.Length > 13 ? 38 : 42;
+            int titleSize = title.Length > 13 ? 44 : 48;
             Text titleText = CreateText(card, title, titleSize, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
-            SetAnchor(titleText.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(-72f, -64f), new Vector2(size.x - 340f, 70f));
+            float titleX = showTitleIcon ? -72f : -20f;
+            float titleWidth = showTitleIcon ? size.x - 340f : size.x - 180f;
+            SetAnchor(titleText.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(titleX, -64f), new Vector2(titleWidth, 82f));
             titleText.AddShadow();
-            CreatePopupIcon(card, GetPopupIconForTitle(title), new Vector2(size.x * 0.5f - 150f, -62f), new Vector2(92f, 92f));
+            if (showTitleIcon)
+            {
+                CreatePopupIcon(card, GetPopupIconForTitle(title), new Vector2(size.x * 0.5f - 150f, -62f), new Vector2(92f, 92f));
+            }
 
             Image titleRule = new GameObject("Championship_Title_Rule").AddComponent<Image>();
             titleRule.transform.SetParent(card, false);
             titleRule.color = new Color(1f, 0.76f, 0.12f, 0.82f);
-            SetAnchor(titleRule.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(-72f, -108f), new Vector2(size.x - 340f, 4f));
+            SetAnchor(titleRule.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(titleX, -108f), new Vector2(titleWidth, 4f));
             titleRule.raycastTarget = false;
 
-            Button close = CreateButton(card, "X", new Color(1f, 1f, 1f, 0.12f), Color.white, 28);
-            SetAnchor(close.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-50f, -52f), new Vector2(56f, 56f));
+            Button close = CreateButton(card, "X", new Color(1f, 1f, 1f, 0.12f), Color.white, 32);
+            SetAnchor(close.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-50f, -52f), new Vector2(64f, 64f));
             close.onClick.AddListener(CloseModal);
             return card;
         }
@@ -756,9 +745,9 @@ namespace RoadToWorldcup
 
         private void ShowDailyReward()
         {
-            RectTransform card = OpenModal("DAILY REWARD", new Vector2(860f, 1160f));
-            Text intro = CreateText(card, GameSession.CanClaimDailyReward ? "TODAY'S BONUS IS READY" : "NEXT BONUS: TOMORROW", 24, FontStyle.Bold, new Color(0.82f, 0.94f, 1f), TextAnchor.MiddleCenter);
-            SetAnchor(intro.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -145f), new Vector2(740f, 60f));
+            RectTransform card = OpenModal("DAILY REWARD", new Vector2(860f, 1160f), false);
+            Text intro = CreateText(card, GameSession.CanClaimDailyReward ? "TODAY'S BONUS IS READY" : "NEXT BONUS: TOMORROW", 30, FontStyle.Bold, new Color(0.82f, 0.94f, 1f), TextAnchor.MiddleCenter);
+            SetAnchor(intro.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -150f), new Vector2(740f, 68f));
 
             for (int i = 0; i < 7; i++)
             {
@@ -767,13 +756,13 @@ namespace RoadToWorldcup
                 RectTransform rewardCard = CreateFeatureCard(card, "Day_" + (i + 1), new Vector2(column == 0 ? -195f : 195f, 220f - row * 155f), new Vector2(350f, 126f), i == GameSession.DailyRewardDay ? new Color(0.16f, 0.45f, 0.25f, 1f) : new Color(0.07f, 0.15f, 0.24f, 1f));
                 CreatePopupIcon(rewardCard, PopupIcon.DailyReward, new Vector2(-117f, 0f), new Vector2(86f, 86f));
                 Reward reward = GetDailyReward(i);
-                Text day = CreateText(rewardCard, "DAY " + (i + 1), 20, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
-                SetAnchor(day.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(54f, -30f), new Vector2(200f, 40f));
-                Text amount = CreateText(rewardCard, reward.ToDisplayString().Replace("+", ""), 23, FontStyle.Bold, new Color(1f, 0.84f, 0.2f), TextAnchor.MiddleCenter);
-                SetAnchor(amount.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(54f, 30f), new Vector2(220f, 42f));
+                Text day = CreateText(rewardCard, "DAY " + (i + 1), 25, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
+                SetAnchor(day.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(54f, -32f), new Vector2(200f, 44f));
+                Text amount = CreateText(rewardCard, reward.ToDisplayString().Replace("+", ""), 28, FontStyle.Bold, new Color(1f, 0.84f, 0.2f), TextAnchor.MiddleCenter);
+                SetAnchor(amount.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(54f, 32f), new Vector2(220f, 48f));
             }
 
-            Button claim = CreateButton(card, GameSession.CanClaimDailyReward ? "CLAIM " + GameSession.GetDailyRewardPreview().ToDisplayString() : "CLAIMED TODAY", GameSession.CanClaimDailyReward ? new Color(0.08f, 0.74f, 0.2f) : new Color(0.18f, 0.24f, 0.3f), Color.white, 27);
+            Button claim = CreateButton(card, GameSession.CanClaimDailyReward ? "CLAIM " + GameSession.GetDailyRewardPreview().ToDisplayString() : "CLAIMED TODAY", GameSession.CanClaimDailyReward ? new Color(0.08f, 0.74f, 0.2f) : new Color(0.18f, 0.24f, 0.3f), Color.white, 32);
             SetAnchor(claim.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 84f), new Vector2(690f, 92f));
             claim.interactable = GameSession.CanClaimDailyReward;
             claim.onClick.AddListener(delegate { GameSession.ClaimDailyReward(); ShowDailyReward(); });
@@ -789,14 +778,14 @@ namespace RoadToWorldcup
 
         private void ShowSpin()
         {
-            RectTransform card = OpenModal("DAILY SPIN", new Vector2(860f, 1160f));
-            Text hint = CreateText(card, GameSession.CanSpinToday ? "1 FREE SPIN AVAILABLE" : "FREE SPIN USED — COME BACK TOMORROW", 23, FontStyle.Bold, new Color(0.82f, 0.94f, 1f), TextAnchor.MiddleCenter);
-            SetAnchor(hint.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -145f), new Vector2(740f, 70f));
+            RectTransform card = OpenModal("DAILY SPIN", new Vector2(860f, 1160f), false);
+            Text hint = CreateText(card, GameSession.CanSpinToday ? "1 FREE SPIN AVAILABLE" : "FREE SPIN USED — COME BACK TOMORROW", 28, FontStyle.Bold, new Color(0.82f, 0.94f, 1f), TextAnchor.MiddleCenter);
+            SetAnchor(hint.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -150f), new Vector2(740f, 78f));
             RectTransform wheel = CreateRewardWheel(card);
             CreateWheelPointer(card);
-            Text status = CreateText(card, GameSession.CanSpinToday ? "TAP SPIN TO PLAY" : "TRY AGAIN TOMORROW", 23, FontStyle.Bold, new Color(1f, 0.86f, 0.18f), TextAnchor.MiddleCenter);
-            SetAnchor(status.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 182f), new Vector2(740f, 56f));
-            Button spin = CreateButton(card, GameSession.CanSpinToday ? "SPIN" : "SPIN USED", GameSession.CanSpinToday ? new Color(0.08f, 0.74f, 0.2f) : new Color(0.18f, 0.24f, 0.3f), Color.white, 36);
+            Text status = CreateText(card, GameSession.CanSpinToday ? "TAP SPIN TO PLAY" : "TRY AGAIN TOMORROW", 28, FontStyle.Bold, new Color(1f, 0.86f, 0.18f), TextAnchor.MiddleCenter);
+            SetAnchor(status.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 182f), new Vector2(740f, 64f));
+            Button spin = CreateButton(card, GameSession.CanSpinToday ? "SPIN" : "SPIN USED", GameSession.CanSpinToday ? new Color(0.08f, 0.74f, 0.2f) : new Color(0.18f, 0.24f, 0.3f), Color.white, 40);
             SetAnchor(spin.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 84f), new Vector2(500f, 92f));
             spin.interactable = GameSession.CanSpinToday;
             spin.onClick.AddListener(delegate { StartCoroutine(SpinRoutine(wheel, spin, status)); });
@@ -831,8 +820,8 @@ namespace RoadToWorldcup
                 Vector2 labelPosition = direction * labelRadius;
                 float iconSize = rewardComponents[i] == SpinComponent.Jackpot ? 94f : 72f;
                 CreateSpinComponentImage(wheel, rewardComponents[i], iconPosition, new Vector2(iconSize, iconSize));
-                Text rewardText = CreateText(wheel, rewards[i], 17, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
-                SetAnchor(rewardText.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), labelPosition, new Vector2(116f, 56f));
+                Text rewardText = CreateText(wheel, rewards[i], 21, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
+                SetAnchor(rewardText.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), labelPosition, new Vector2(124f, 68f));
                 rewardText.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 90f - angle);
                 rewardText.AddShadow();
             }
@@ -880,39 +869,34 @@ namespace RoadToWorldcup
         private void ShowShop()
         {
             IapStorefront.EnsureInitialized();
-            RectTransform card = OpenModal("SHOP", new Vector2(860f, 1120f));
-            Text wallet = CreateText(card, "WALLET  " + GameSession.Coins + " GOLD  •  " + GameSession.Gems + " GEMS", 23, FontStyle.Bold, new Color(0.82f, 0.94f, 1f), TextAnchor.MiddleCenter);
-            SetAnchor(wallet.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -145f), new Vector2(740f, 54f));
-            Text note = CreateText(card, IapStorefront.Status, 20, FontStyle.Bold, new Color(1f, 0.82f, 0.2f), TextAnchor.MiddleCenter);
-            SetAnchor(note.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -195f), new Vector2(740f, 50f));
+            RectTransform card = OpenModal("SHOP", new Vector2(860f, 1120f), false);
+            Text wallet = CreateText(card, "WALLET  " + GameSession.Coins + " GOLD  •  " + GameSession.Gems + " GEMS", 28, FontStyle.Bold, new Color(0.82f, 0.94f, 1f), TextAnchor.MiddleCenter);
+            SetAnchor(wallet.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -150f), new Vector2(740f, 64f));
+            Text note = CreateText(card, IapStorefront.Status, 24, FontStyle.Bold, new Color(1f, 0.82f, 0.2f), TextAnchor.MiddleCenter);
+            SetAnchor(note.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -204f), new Vector2(740f, 58f));
             IList<IapPack> packs = IapStorefront.Packs;
             for (int i = 0; i < packs.Count; i++)
             {
                 IapPack packData = packs[i];
                 RectTransform pack = CreateFeatureCard(card, "IAP_Pack_" + i, new Vector2(0f, 180f - i * 220f), new Vector2(700f, 180f), new Color(0.07f, 0.18f + i * 0.04f, 0.34f, 1f));
                 CreatePopupIcon(pack, PopupIcon.Shop, new Vector2(-265f, 0f), new Vector2(138f, 138f));
-                Text packText = CreateText(pack, packData.displayName + "\n" + packData.RewardText + "\n" + IapStorefront.GetLocalizedPrice(packData), 23, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
-                SetAnchor(packText.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(58f, 0f), new Vector2(420f, 150f));
-                Button buy = CreateButton(pack, IapStorefront.IsReady ? "BUY" : "...", IapStorefront.IsReady ? new Color(0.08f, 0.62f, 0.28f) : new Color(0.16f, 0.24f, 0.34f), Color.white, 20);
+                Text packText = CreateText(pack, packData.displayName + "\n" + packData.RewardText + "\n" + IapStorefront.GetLocalizedPrice(packData), 28, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
+                SetAnchor(packText.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(52f, 0f), new Vector2(416f, 156f));
+                Button buy = CreateButton(pack, IapStorefront.IsReady ? "BUY" : "...", IapStorefront.IsReady ? new Color(0.08f, 0.62f, 0.28f) : new Color(0.16f, 0.24f, 0.34f), Color.white, 26);
                 SetAnchor(buy.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-82f, 0f), new Vector2(110f, 64f));
                 buy.interactable = IapStorefront.IsReady && !IapStorefront.IsPurchasing;
                 buy.onClick.AddListener(delegate { IapStorefront.Purchase(packData); });
             }
-            Text spending = CreateText(card, "LIFETIME SPENT: " + GameSession.TotalCoinsSpent + " GOLD  |  " + GameSession.TotalGemsSpent + " GEMS", 24, FontStyle.Bold, new Color(0.65f, 0.82f, 0.95f), TextAnchor.MiddleCenter);
-            SetAnchor(spending.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 72f), new Vector2(720f, 52f));
+            Text spending = CreateText(card, "LIFETIME SPENT: " + GameSession.TotalCoinsSpent + " GOLD  |  " + GameSession.TotalGemsSpent + " GEMS", 28, FontStyle.Bold, new Color(0.65f, 0.82f, 0.95f), TextAnchor.MiddleCenter);
+            SetAnchor(spending.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 76f), new Vector2(720f, 60f));
         }
 
         private void ShowSettings()
         {
-            RectTransform card = OpenModal("SETTINGS", new Vector2(860f, 920f));
-            CreateSettingsRow(card, "LANGUAGE", GameSession.Language, 180f, delegate
-            {
-                GameSession.SetLanguage(GameSession.Language == "Tiếng Việt" ? "English" : "Tiếng Việt");
-                ShowSettings();
-            });
-            CreateSettingsRow(card, "BACKGROUND MUSIC", GameSession.MusicEnabled ? "ON" : "OFF", 40f, delegate { GameSession.SetMusicEnabled(!GameSession.MusicEnabled); ShowSettings(); });
-            CreateSettingsRow(card, "SFX", GameSession.SfxEnabled ? "ON" : "OFF", -100f, delegate { GameSession.SetSfxEnabled(!GameSession.SfxEnabled); ShowSettings(); });
-            Text footer = CreateText(card, "CHANGES SAVE AUTOMATICALLY", 20, FontStyle.Bold, new Color(0.64f, 0.8f, 0.94f), TextAnchor.MiddleCenter);
+            RectTransform card = OpenModal("SETTINGS", new Vector2(860f, 720f), false);
+            CreateSettingsRow(card, "BACKGROUND MUSIC", GameSession.MusicEnabled ? "ON" : "OFF", 80f, delegate { GameSession.SetMusicEnabled(!GameSession.MusicEnabled); ShowSettings(); });
+            CreateSettingsRow(card, "SFX", GameSession.SfxEnabled ? "ON" : "OFF", -60f, delegate { GameSession.SetSfxEnabled(!GameSession.SfxEnabled); ShowSettings(); });
+            Text footer = CreateText(card, "CHANGES SAVE AUTOMATICALLY", 24, FontStyle.Bold, new Color(0.64f, 0.8f, 0.94f), TextAnchor.MiddleCenter);
             SetAnchor(footer.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 76f), new Vector2(700f, 48f));
         }
 
@@ -920,28 +904,11 @@ namespace RoadToWorldcup
         {
             RectTransform row = CreateFeatureCard(parent, label, new Vector2(0f, y), new Vector2(710f, 110f), new Color(0.07f, 0.15f, 0.24f, 1f));
             CreatePopupIcon(row, PopupIcon.Settings, new Vector2(-286f, 0f), new Vector2(78f, 78f));
-            Text name = CreateText(row, label, 25, FontStyle.Bold, Color.white, TextAnchor.MiddleLeft);
+            Text name = CreateText(row, label, 30, FontStyle.Bold, Color.white, TextAnchor.MiddleLeft);
             SetAnchor(name.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(300f, 0f), new Vector2(340f, 60f));
-            Button valueButton = CreateButton(row, value, new Color(0.08f, 0.52f, 0.72f), Color.white, 24);
+            Button valueButton = CreateButton(row, value, new Color(0.08f, 0.52f, 0.72f), Color.white, 28);
             SetAnchor(valueButton.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-105f, 0f), new Vector2(180f, 66f));
             valueButton.onClick.AddListener(action);
-        }
-
-        private void ShowRanking()
-        {
-            RectTransform card = OpenModal("RANKING", new Vector2(860f, 1080f));
-            Text subtitle = CreateText(card, "Game Center leaderboard", 30, FontStyle.Bold, new Color(0.82f, 0.94f, 1f), TextAnchor.MiddleCenter);
-            SetAnchor(subtitle.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -145f), new Vector2(720f, 55f));
-            string[] names = { "1   GOLDEN BOOT     30", "2   BLUE LIGHTNING  27", "3   GOAL HUNTER     24", "4   YOU             " + GameSession.SelectedLevelNumber + "", "5   ROAD RUNNER     16" };
-            for (int i = 0; i < names.Length; i++)
-            {
-                bool player = i == 3;
-                RectTransform row = CreateFeatureCard(card, "Rank_" + i, new Vector2(0f, 210f - i * 135f), new Vector2(700f, 102f), player ? new Color(0.11f, 0.5f, 0.3f, 1f) : new Color(0.06f, 0.14f, 0.23f, 1f));
-                Text line = CreateText(row, names[i], 27, FontStyle.Bold, player ? new Color(1f, 0.86f, 0.18f) : Color.white, TextAnchor.MiddleCenter);
-                SetAnchor(line.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            }
-            Text status = CreateText(card, "Game Center connection is enabled when the iOS service is integrated. This offline preview keeps your current level visible.", 23, FontStyle.Bold, new Color(0.63f, 0.8f, 0.94f), TextAnchor.MiddleCenter);
-            SetAnchor(status.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 90f), new Vector2(730f, 92f));
         }
 
         private void ShowCustomize(CosmeticCategory category)
@@ -956,8 +923,8 @@ namespace RoadToWorldcup
             CreateCustomizeTab(card, "JERSEY", CosmeticCategory.Jersey, 0f, category);
             CreateCustomizeTab(card, "ACCESSORY", CosmeticCategory.Accessory, 265f, category);
 
-            Text wallet = CreateText(card, GameSession.Coins + " GOLD   |   " + GameSession.Gems + " GEMS", 22, FontStyle.Bold, TrophyGold, TextAnchor.MiddleCenter);
-            SetAnchor(wallet.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -635f), new Vector2(760f, 42f));
+            Text wallet = CreateText(card, GameSession.Coins + " GOLD   |   " + GameSession.Gems + " GEMS", 28, FontStyle.Bold, TrophyGold, TextAnchor.MiddleCenter);
+            SetAnchor(wallet.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -640f), new Vector2(760f, 52f));
 
             IList<CosmeticItem> items = GameSession.GetCosmetics(category);
             RectTransform content = CreateCustomizeScrollView(card, items.Count);
@@ -967,27 +934,27 @@ namespace RoadToWorldcup
                 bool previewed = IsPreviewing(item);
                 int column = i % 3;
                 int rowIndex = i / 3;
-                RectTransform itemCard = CreateFeatureCard(content, "Cosmetic_" + item.id, Vector2.zero, new Vector2(248f, 186f), previewed ? new Color(0.10f, 0.42f, 0.48f, 1f) : (GameSession.IsEquipped(item) ? new Color(0.12f, 0.43f, 0.27f, 1f) : new Color(0.06f, 0.14f, 0.23f, 1f)));
-                SetAnchor(itemCard, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2((column - 1) * 270f, -98f - rowIndex * 202f), new Vector2(248f, 186f));
+                RectTransform itemCard = CreateFeatureCard(content, "Cosmetic_" + item.id, Vector2.zero, new Vector2(248f, 208f), previewed ? new Color(0.10f, 0.42f, 0.48f, 1f) : (GameSession.IsEquipped(item) ? new Color(0.12f, 0.43f, 0.27f, 1f) : new Color(0.06f, 0.14f, 0.23f, 1f)));
+                SetAnchor(itemCard, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2((column - 1) * 270f, -108f - rowIndex * 224f), new Vector2(248f, 208f));
 
                 Button previewButton = CreateButton(itemCard, string.Empty, new Color(item.color.r * 0.45f, item.color.g * 0.45f, item.color.b * 0.45f, 1f), Color.white, 16);
-                SetAnchor(previewButton.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -52f), new Vector2(122f, 86f));
+                SetAnchor(previewButton.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -58f), new Vector2(132f, 94f));
                 Text iconLabel = previewButton.GetComponentInChildren<Text>();
                 if (iconLabel != null) iconLabel.gameObject.SetActive(false);
                 CreateCosmeticIcon(previewButton.transform, item);
                 previewButton.onClick.AddListener(delegate { SetPreviewItem(item); ShowCustomize(category); });
-                Text name = CreateText(itemCard, item.displayName, 16, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
-                SetAnchor(name.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -112f), new Vector2(228f, 30f));
+                Text name = CreateText(itemCard, item.displayName, 21, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
+                SetAnchor(name.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -126f), new Vector2(228f, 38f));
                 string price = GameSession.IsOwned(item) ? (GameSession.IsEquipped(item) ? "EQUIPPED" : "OWNED") : item.price + " " + (item.currency == WalletCurrency.Coins ? "GOLD" : "GEMS");
-                Text priceText = CreateText(itemCard, price, 14, FontStyle.Bold, previewed ? new Color(0.72f, 0.96f, 1f) : TrophyGold, TextAnchor.MiddleCenter);
-                SetAnchor(priceText.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -139f), new Vector2(224f, 24f));
-                Button action = CreateButton(itemCard, GameSession.IsEquipped(item) ? "ON" : (GameSession.IsOwned(item) ? "WEAR" : "BUY"), GameSession.IsEquipped(item) ? new Color(0.18f, 0.25f, 0.3f) : new Color(0.08f, 0.6f, 0.28f), Color.white, 16);
-                SetAnchor(action.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 16f), new Vector2(112f, 36f));
+                Text priceText = CreateText(itemCard, price, 18, FontStyle.Bold, previewed ? new Color(0.72f, 0.96f, 1f) : TrophyGold, TextAnchor.MiddleCenter);
+                SetAnchor(priceText.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -158f), new Vector2(224f, 30f));
+                Button action = CreateButton(itemCard, GameSession.IsEquipped(item) ? "ON" : (GameSession.IsOwned(item) ? "WEAR" : "BUY"), GameSession.IsEquipped(item) ? new Color(0.18f, 0.25f, 0.3f) : new Color(0.08f, 0.6f, 0.28f), Color.white, 20);
+                SetAnchor(action.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(126f, 44f));
                 action.interactable = !GameSession.IsEquipped(item);
                 action.onClick.AddListener(delegate { string ignored; if (GameSession.PurchaseOrEquip(item, out ignored)) SetPreviewItem(item); ShowCustomize(category); });
             }
-            Text spend = CreateText(card, "SPENT: " + GameSession.TotalCoinsSpent + " GOLD  |  " + GameSession.TotalGemsSpent + " GEMS", 22, FontStyle.Bold, new Color(0.65f, 0.83f, 0.96f), TextAnchor.MiddleCenter);
-            SetAnchor(spend.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 60f), new Vector2(700f, 45f));
+            Text spend = CreateText(card, "SPENT: " + GameSession.TotalCoinsSpent + " GOLD  |  " + GameSession.TotalGemsSpent + " GEMS", 26, FontStyle.Bold, new Color(0.65f, 0.83f, 0.96f), TextAnchor.MiddleCenter);
+            SetAnchor(spend.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 64f), new Vector2(700f, 54f));
         }
 
         private RectTransform CreateCustomizeScrollView(RectTransform parent, int itemCount)
@@ -1013,7 +980,7 @@ namespace RoadToWorldcup
             content.pivot = new Vector2(0.5f, 1f);
             content.anchoredPosition = Vector2.zero;
             int rows = Mathf.CeilToInt(itemCount / 3f);
-            content.sizeDelta = new Vector2(800f, Mathf.Max(580f, rows * 202f + 8f));
+            content.sizeDelta = new Vector2(800f, Mathf.Max(580f, rows * 224f + 8f));
 
             ScrollRect scroll = scrollObject.GetComponent<ScrollRect>();
             scroll.viewport = viewportObject.GetComponent<RectTransform>();
@@ -1049,8 +1016,8 @@ namespace RoadToWorldcup
             surface.color = Color.white;
             SetAnchor(surface.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-20f, -20f));
 
-            Text label = CreateText(previewFrame, "#10  3D PREVIEW", 19, FontStyle.Bold, TrophyGold, TextAnchor.MiddleCenter);
-            SetAnchor(label.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 18f), new Vector2(340f, 30f));
+            Text label = CreateText(previewFrame, "#10  3D PREVIEW", 24, FontStyle.Bold, TrophyGold, TextAnchor.MiddleCenter);
+            SetAnchor(label.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(380f, 38f));
         }
 
         private void EnsureCustomizePreviewWorld()
@@ -1352,16 +1319,16 @@ namespace RoadToWorldcup
 
         private void CreateCustomizeTab(RectTransform parent, string label, CosmeticCategory tab, float x, CosmeticCategory active)
         {
-            Button button = CreateButton(parent, label, tab == active ? new Color(0.08f, 0.58f, 0.76f) : new Color(0.13f, 0.2f, 0.29f), Color.white, 20);
-            SetAnchor(button.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(x, -560f), new Vector2(240f, 66f));
+            Button button = CreateButton(parent, label, tab == active ? new Color(0.08f, 0.58f, 0.76f) : new Color(0.13f, 0.2f, 0.29f), Color.white, 25);
+            SetAnchor(button.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(x, -560f), new Vector2(240f, 72f));
             button.onClick.AddListener(delegate { ShowCustomize(tab); });
         }
 
         private void ShowMissions()
         {
             RectTransform card = OpenModal("DAILY MISSIONS", new Vector2(900f, 1240f));
-            Text refresh = CreateText(card, "RESETS AT MIDNIGHT  •  EXTRA GOLD", 21, FontStyle.Bold, new Color(0.82f, 0.94f, 1f), TextAnchor.MiddleCenter);
-            SetAnchor(refresh.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -145f), new Vector2(760f, 56f));
+            Text refresh = CreateText(card, "RESETS AT MIDNIGHT  •  EXTRA GOLD", 26, FontStyle.Bold, new Color(0.82f, 0.94f, 1f), TextAnchor.MiddleCenter);
+            SetAnchor(refresh.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -150f), new Vector2(760f, 64f));
             string[] labels = { "WIN 1 LEVEL", "WIN 3 LEVELS", "SPEND 500 GOLD" };
             for (int i = 0; i < 3; i++)
             {
@@ -1370,17 +1337,17 @@ namespace RoadToWorldcup
                 int target = GameSession.GetMissionTarget(mission);
                 RectTransform row = CreateFeatureCard(card, "Mission_" + mission, new Vector2(0f, 220f - mission * 250f), new Vector2(760f, 205f), new Color(0.06f, 0.15f, 0.25f, 1f));
                 CreatePopupIcon(row, PopupIcon.Missions, new Vector2(-286f, 0f), new Vector2(136f, 136f));
-                Text label = CreateText(row, labels[mission] + "\n" + progress + " / " + target + "  •  " + GameSession.GetMissionReward(mission) + " GOLD", 21, FontStyle.Bold, Color.white, TextAnchor.MiddleLeft);
-                SetAnchor(label.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(370f, 0f), new Vector2(320f, 100f));
+                Text label = CreateText(row, labels[mission] + "\n" + progress + " / " + target + "  •  " + GameSession.GetMissionReward(mission) + " GOLD", 26, FontStyle.Bold, Color.white, TextAnchor.MiddleLeft);
+                SetAnchor(label.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(370f, 0f), new Vector2(320f, 112f));
                 bool canClaim = GameSession.CanClaimMission(mission);
                 bool claimed = GameSession.IsMissionClaimed(mission);
-                Button claim = CreateButton(row, claimed ? "CLAIMED" : canClaim ? "CLAIM" : "IN PROGRESS", canClaim ? new Color(0.08f, 0.72f, 0.22f) : new Color(0.18f, 0.24f, 0.31f), Color.white, 18);
+                Button claim = CreateButton(row, claimed ? "CLAIMED" : canClaim ? "CLAIM" : "IN PROGRESS", canClaim ? new Color(0.08f, 0.72f, 0.22f) : new Color(0.18f, 0.24f, 0.31f), Color.white, 22);
                 SetAnchor(claim.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-115f, 0f), new Vector2(190f, 72f));
                 claim.interactable = canClaim;
                 claim.onClick.AddListener(delegate { GameSession.ClaimMission(mission); ShowMissions(); });
             }
-            Text footer = CreateText(card, "Today you have spent " + GameSession.DailyCoinsSpent + " / 500 gold.", 24, FontStyle.Bold, new Color(0.65f, 0.83f, 0.96f), TextAnchor.MiddleCenter);
-            SetAnchor(footer.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 70f), new Vector2(700f, 48f));
+            Text footer = CreateText(card, "Today you have spent " + GameSession.DailyCoinsSpent + " / 500 gold.", 28, FontStyle.Bold, new Color(0.65f, 0.83f, 0.96f), TextAnchor.MiddleCenter);
+            SetAnchor(footer.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 72f), new Vector2(700f, 56f));
         }
 
         private void BuildComingSoon(RectTransform root)
@@ -1420,11 +1387,11 @@ namespace RoadToWorldcup
             SetAnchor(comingSoonText.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 76f), new Vector2(620f, 120f));
             comingSoonText.AddShadow();
 
-            Text body = CreateText(card.GetComponent<RectTransform>(), "This feature unlocks later.", 32, FontStyle.Bold, new Color(0.82f, 0.94f, 1f), TextAnchor.MiddleCenter);
+            Text body = CreateText(card.GetComponent<RectTransform>(), "This feature unlocks later.", 36, FontStyle.Bold, new Color(0.82f, 0.94f, 1f), TextAnchor.MiddleCenter);
             SetAnchor(body.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -16f), new Vector2(620f, 80f));
             body.AddShadow();
 
-            Button close = CreateButton(card.GetComponent<RectTransform>(), "OK", new Color(0.08f, 0.75f, 0.22f), Color.white, 34);
+            Button close = CreateButton(card.GetComponent<RectTransform>(), "OK", new Color(0.08f, 0.75f, 0.22f), Color.white, 38);
             SetAnchor(close.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 58f), new Vector2(280f, 88f));
             close.onClick.AddListener(delegate { comingSoonPanel.SetActive(false); });
             comingSoonPanel.SetActive(false);
@@ -1479,7 +1446,10 @@ namespace RoadToWorldcup
             text.alignment = anchor;
             text.raycastTarget = false;
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
+            text.resizeTextForBestFit = true;
+            text.resizeTextMinSize = Mathf.Max(16, Mathf.RoundToInt(size * 0.78f));
+            text.resizeTextMaxSize = size;
             return text;
         }
 

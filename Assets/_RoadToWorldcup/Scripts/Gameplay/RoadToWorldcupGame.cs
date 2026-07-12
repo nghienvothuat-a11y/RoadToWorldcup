@@ -1457,45 +1457,46 @@ namespace RoadToWorldcup
             RectTransform root = canvasObject.GetComponent<RectTransform>();
 
             RectTransform levelBadge = CreateArtPanel(root, "Level_Badge", UiPanelFill, UiPanelBorder, true);
-            SetAnchor(levelBadge, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(152f, -72f), new Vector2(252f, 60f));
+            SetAnchor(levelBadge, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(164f, -76f), new Vector2(276f, 68f));
 
-            levelLabel = CreateText(levelBadge, "LEVEL " + level.number, 32, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
+            levelLabel = CreateText(levelBadge, "LEVEL " + level.number, 38, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
             SetAnchor(levelLabel.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
             RectTransform walletBadge = CreateArtPanel(root, "Gem_Wallet", UiPanelFill, new Color(0.18f, 0.94f, 1f, 0.52f), true);
-            SetAnchor(walletBadge, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-168f, -72f), new Vector2(268f, 60f));
-            walletText = CreateText(walletBadge, string.Empty, 26, FontStyle.Bold, new Color(0.35f, 0.94f, 1f), TextAnchor.MiddleCenter);
+            SetAnchor(walletBadge, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-178f, -76f), new Vector2(292f, 68f));
+            walletText = CreateText(walletBadge, string.Empty, 31, FontStyle.Bold, new Color(0.35f, 0.94f, 1f), TextAnchor.MiddleCenter);
             SetAnchor(walletText.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             UpdateWalletText();
 
             RectTransform goalCard = CreateArtPanel(root, "Goal_Card", new Color(0.02f, 0.08f, 0.13f, 0.76f), UiPanelBorder, true);
-            SetAnchor(goalCard, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(165f, -154f), new Vector2(280f, 96f));
+            SetAnchor(goalCard, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(170f, -166f), new Vector2(300f, 114f));
 
-            Text goalTitle = CreateText(goalCard, "OBJECTIVE", 19, FontStyle.Bold, new Color(0.68f, 0.88f, 1f), TextAnchor.MiddleCenter);
-            SetAnchor(goalTitle.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -21f), new Vector2(230f, 32f));
+            Text goalTitle = CreateText(goalCard, "OBJECTIVE", 23, FontStyle.Bold, new Color(0.68f, 0.88f, 1f), TextAnchor.MiddleCenter);
+            SetAnchor(goalTitle.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -24f), new Vector2(250f, 36f));
 
-            Text goalText = CreateText(goalCard, "PASS TO #10", 25, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
-            SetAnchor(goalText.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 24f), new Vector2(230f, 40f));
+            Text goalText = CreateText(goalCard, "PASS TO #10", 30, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
+            SetAnchor(goalText.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(250f, 46f));
 
             RectTransform howToCard = CreateArtPanel(root, "How_To_Play_Card", new Color(0.02f, 0.11f, 0.07f, 0.72f), new Color(0.86f, 1f, 0.64f, 0.36f), true);
-            SetAnchor(howToCard, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(240f, 152f), new Vector2(420f, 144f));
+            // Reserve the lower screen area for the future ad banner without covering the aiming controls.
+            SetAnchor(howToCard, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(250f, 300f), new Vector2(460f, 164f));
 
-            Text howToTitle = CreateText(howToCard, "TIP", 18, FontStyle.Bold, new Color(0.68f, 0.88f, 1f), TextAnchor.MiddleLeft);
-            SetAnchor(howToTitle.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(30f, -22f), new Vector2(48f, 28f));
+            Text howToTitle = CreateText(howToCard, "TIP", 22, FontStyle.Bold, new Color(0.68f, 0.88f, 1f), TextAnchor.MiddleLeft);
+            SetAnchor(howToTitle.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(36f, -26f), new Vector2(60f, 32f));
 
-            promptText = CreateText(howToCard, "HOLD TO AIM  |  RELEASE TO PASS\nPULL BACK FOR A LOB", 19, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
-            SetAnchor(promptText.rectTransform, Vector2.zero, Vector2.one, new Vector2(0f, 8f), new Vector2(-28f, -42f));
+            promptText = CreateText(howToCard, "HOLD TO AIM  |  RELEASE TO PASS\nPULL BACK FOR A LOB", 24, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
+            SetAnchor(promptText.rectTransform, Vector2.zero, Vector2.one, new Vector2(0f, 10f), new Vector2(-32f, -48f));
 
-            Button pauseButton = CreateButton(root, "II", UiPanelFill, Color.white, 32);
-            SetAnchor(pauseButton.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-58f, -62f), new Vector2(56f, 52f));
+            Button pauseButton = CreateButton(root, "II", UiPanelFill, Color.white, 36);
+            SetAnchor(pauseButton.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-62f, -68f), new Vector2(64f, 60f));
             pauseButton.onClick.AddListener(Pause);
 
-            Button levelsButton = CreateButton(root, "LEVELS", UiButtonBlue, Color.white, 30);
-            SetAnchor(levelsButton.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-116f, -122f), new Vector2(176f, 54f));
+            Button levelsButton = CreateButton(root, "LEVELS", UiButtonBlue, Color.white, 34);
+            SetAnchor(levelsButton.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-126f, -134f), new Vector2(196f, 64f));
             levelsButton.onClick.AddListener(ShowLevelSelect);
 
             RectTransform powerPanel = CreateArtPanel(root, "Power_Meter", new Color(0f, 0f, 0f, 0.58f), new Color(0.86f, 1f, 0.68f, 0.34f), true);
-            SetAnchor(powerPanel, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 54f), new Vector2(540f, 58f));
+            SetAnchor(powerPanel, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 62f), new Vector2(580f, 68f));
 
             GameObject fillObject = new GameObject("Power_Fill");
             fillObject.transform.SetParent(powerPanel, false);
@@ -1506,7 +1507,7 @@ namespace RoadToWorldcup
             powerFill.fillAmount = 0f;
             SetAnchor(powerFill.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-28f, -18f));
 
-            powerText = CreateText(powerPanel, "POWER 0%", 24, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
+            powerText = CreateText(powerPanel, "POWER 0%", 29, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
             SetAnchor(powerText.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             powerPanel.gameObject.SetActive(false);
 
@@ -1530,20 +1531,20 @@ namespace RoadToWorldcup
             Text title = CreateText(card, "PAUSED", 56, FontStyle.Bold, UiTitleGold, TextAnchor.MiddleCenter);
             SetAnchor(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -92f), new Vector2(560f, 100f));
 
-            Button resume = CreateButton(card, "RESUME", UiButtonGreen, Color.white, 34);
-            SetAnchor(resume.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 132f), new Vector2(420f, 82f));
+            Button resume = CreateButton(card, "RESUME", UiButtonGreen, Color.white, 38);
+            SetAnchor(resume.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 132f), new Vector2(440f, 88f));
             resume.onClick.AddListener(Resume);
 
-            Button retry = CreateButton(card, "RETRY", UiButtonBlue, Color.white, 34);
-            SetAnchor(retry.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 24f), new Vector2(420f, 82f));
+            Button retry = CreateButton(card, "RETRY", UiButtonBlue, Color.white, 38);
+            SetAnchor(retry.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 24f), new Vector2(440f, 88f));
             retry.onClick.AddListener(Retry);
 
-            Button levels = CreateButton(card, "LEVELS", UiButtonBlue, Color.white, 34);
-            SetAnchor(levels.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -84f), new Vector2(420f, 82f));
+            Button levels = CreateButton(card, "LEVELS", UiButtonBlue, Color.white, 38);
+            SetAnchor(levels.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -84f), new Vector2(440f, 88f));
             levels.onClick.AddListener(ShowLevelSelect);
 
-            Button menu = CreateButton(card, "MENU", UiButtonDark, Color.white, 34);
-            SetAnchor(menu.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -192f), new Vector2(420f, 82f));
+            Button menu = CreateButton(card, "MENU", UiButtonDark, Color.white, 38);
+            SetAnchor(menu.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -192f), new Vector2(440f, 88f));
             menu.onClick.AddListener(SceneLoader.LoadMainMenu);
 
             pauseOverlay.SetActive(false);
@@ -1563,8 +1564,8 @@ namespace RoadToWorldcup
             Text title = CreateText(card, "SELECT LEVEL", 54, FontStyle.Bold, UiTitleGold, TextAnchor.MiddleCenter);
             SetAnchor(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -90f), new Vector2(700f, 100f));
 
-            Text hint = CreateText(card, "Tap a level to jump in", 28, FontStyle.Bold, new Color(0.82f, 0.94f, 1f), TextAnchor.MiddleCenter);
-            SetAnchor(hint.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -160f), new Vector2(700f, 60f));
+            Text hint = CreateText(card, "Tap a level to jump in", 34, FontStyle.Bold, new Color(0.82f, 0.94f, 1f), TextAnchor.MiddleCenter);
+            SetAnchor(hint.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -164f), new Vector2(700f, 68f));
 
             for (int i = 0; i < GameSession.LevelCount; i++)
             {
@@ -1573,14 +1574,14 @@ namespace RoadToWorldcup
                 int row = i / 3;
                 bool current = i == GameSession.SelectedLevelIndex;
                 Color color = current ? UiButtonGreen : UiButtonBlue;
-                Button levelButton = CreateButton(card, "LEVEL " + (i + 1), color, Color.white, 22);
+                Button levelButton = CreateButton(card, "LEVEL " + (i + 1), color, Color.white, 27);
                 float x = (column - 1) * 250f;
                 float y = 360f - row * 84f;
                 SetAnchor(levelButton.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(x, y), new Vector2(214f, 68f));
                 levelButton.onClick.AddListener(delegate { SelectLevelFromOverlay(levelIndex); });
             }
 
-            Button close = CreateButton(card, "CLOSE", UiButtonDark, Color.white, 32);
+            Button close = CreateButton(card, "CLOSE", UiButtonDark, Color.white, 36);
             SetAnchor(close.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 86f), new Vector2(430f, 82f));
             close.onClick.AddListener(CloseLevelSelect);
 
@@ -1601,8 +1602,8 @@ namespace RoadToWorldcup
             resultTitle = CreateText(card, "LEVEL COMPLETE", 54, FontStyle.Bold, UiTitleGold, TextAnchor.MiddleCenter);
             SetAnchor(resultTitle.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -82f), new Vector2(660f, 92f));
 
-            resultRewardLabel = CreateText(card, "MATCH REWARDS", 22, FontStyle.Bold, new Color(0.68f, 0.88f, 1f), TextAnchor.MiddleCenter);
-            SetAnchor(resultRewardLabel.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -154f), new Vector2(660f, 40f));
+            resultRewardLabel = CreateText(card, "MATCH REWARDS", 28, FontStyle.Bold, new Color(0.68f, 0.88f, 1f), TextAnchor.MiddleCenter);
+            SetAnchor(resultRewardLabel.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -154f), new Vector2(660f, 48f));
 
             resultReason = CreateText(card, "+100 GOLD", 48, FontStyle.Bold, new Color(1f, 0.76f, 0.12f), TextAnchor.MiddleCenter);
             SetAnchor(resultReason.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -236f), new Vector2(660f, 120f));
@@ -1610,16 +1611,16 @@ namespace RoadToWorldcup
             resultGemReward = CreateText(card, "+1 GEM", 42, FontStyle.Bold, new Color(0.20f, 0.92f, 1f), TextAnchor.MiddleCenter);
             SetAnchor(resultGemReward.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -286f), new Vector2(660f, 64f));
 
-            resultNextButton = CreateButton(card, "NEXT", UiButtonGreen, Color.white, 34);
-            SetAnchor(resultNextButton.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -70f), new Vector2(430f, 82f));
+            resultNextButton = CreateButton(card, "NEXT", UiButtonGreen, Color.white, 38);
+            SetAnchor(resultNextButton.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -70f), new Vector2(450f, 88f));
             resultNextButton.onClick.AddListener(NextLevel);
 
-            Button retry = CreateButton(card, "RETRY", UiButtonBlue, Color.white, 34);
-            SetAnchor(retry.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -170f), new Vector2(430f, 82f));
+            Button retry = CreateButton(card, "RETRY", UiButtonBlue, Color.white, 38);
+            SetAnchor(retry.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -170f), new Vector2(450f, 88f));
             retry.onClick.AddListener(Retry);
 
-            Button menu = CreateButton(card, "MENU", UiButtonDark, Color.white, 34);
-            SetAnchor(menu.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -270f), new Vector2(430f, 82f));
+            Button menu = CreateButton(card, "MENU", UiButtonDark, Color.white, 38);
+            SetAnchor(menu.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -270f), new Vector2(450f, 88f));
             menu.onClick.AddListener(SceneLoader.LoadMainMenu);
 
             resultOverlay.SetActive(false);
@@ -2314,9 +2315,9 @@ namespace RoadToWorldcup
             resultRewardLabel.gameObject.SetActive(false);
             resultGemReward.gameObject.SetActive(false);
             resultReason.text = GetReasonText(reason);
-            resultReason.fontSize = 32;
+            resultReason.fontSize = 40;
             resultReason.rectTransform.anchoredPosition = new Vector2(0f, -176f);
-            resultReason.rectTransform.sizeDelta = new Vector2(660f, 74f);
+            resultReason.rectTransform.sizeDelta = new Vector2(660f, 92f);
             resultReason.color = new Color(1f, 0.36f, 0.26f);
             resultNextButton.gameObject.SetActive(false);
             resultOverlay.SetActive(true);
@@ -3753,7 +3754,10 @@ namespace RoadToWorldcup
             text.alignment = anchor;
             text.raycastTarget = false;
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
+            text.resizeTextForBestFit = true;
+            text.resizeTextMinSize = Mathf.Max(16, Mathf.RoundToInt(size * 0.78f));
+            text.resizeTextMaxSize = size;
             return text;
         }
 
